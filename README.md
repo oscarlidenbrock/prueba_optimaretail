@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend, la pantalla principal React con listado/filtros/creación, el detalle operativo y un diagnóstico de inconsistencias de solo lectura con fixtures independientes. Los datos normales de demostración de incidencias y las reparaciones siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend, la pantalla principal React con listado/filtros/creación, el detalle operativo y el diagnóstico con fixtures independientes y evaluación conservadora de reparaciones. Los casos actuales requieren revisión humana; no hay reparaciones automáticas justificadas. Los datos normales de demostración de incidencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -161,13 +161,16 @@ El plugin de fuentes de Laravel Vite intenta generar fuentes de sustitución con
 
 ## Diagnóstico de inconsistencias
 
-### Comando de solo lectura
+### Diagnóstico y evaluación de reparaciones
 
 ```bash
 php artisan incidents:diagnose --dry-run --no-interaction
+php artisan incidents:diagnose --env=testing --apply --no-interaction
 ```
 
-Revisa la base efectiva del entorno seleccionado antes de ejecutarlo. Sin `--dry-run` el comportamiento es idéntico: **solo SELECT**, sin reparar, cambiar estados, borrar logs ni escribir marcas. Revisa todas las incidencias, no solo las simuladas. Código de salida **0** si no hay hallazgos y **1** si los hay; errores de conexión o ejecución también deben investigarse, no interpretarse como datos correctos. Cada hallazgo identifica incidencia, código de problema y evidencia; cuando hay logs, incluye sus IDs, valores, actor y fecha UTC. El resumen pide revisión manual sin dar autoridad automática al estado ni al historial.
+Revisa la base efectiva del entorno seleccionado antes de ejecutarlo. El modo predeterminado es **dry-run**, idéntico a `--dry-run`. `--apply` exige intención explícita, pero **no autoriza resolver ambigüedades**: actualmente informa de cero reparaciones justificadas y conserva todos los datos, incluso los marcados como simulación. Los tres modos ejecutan solo SELECT; ninguno cambia estados, elimina logs o escribe marcas. **No ejecutar reparaciones en desarrollo.**
+
+Revisa todas las incidencias, no solo las simuladas. Cada hallazgo identifica incidencia, código, evidencia y propuesta de revisión humana; cuando hay logs, incluye sus IDs, valores, actor y fecha UTC. El resumen diferencia lo que se modificaría, correcciones aplicadas (cero) y hallazgos pendientes, sin fingir reparaciones. Código de salida **0** si no hay hallazgos, **1** si quedan hallazgos y **2** si se combinan `--apply` y `--dry-run` (rechazo antes de consultar). Errores de conexión o ejecución también deben investigarse, no interpretarse como datos correctos.
 
 ### Tres casos simulados, únicamente bajo ejecución explícita
 
@@ -224,7 +227,51 @@ Sobre esos resultados se aplican tres comprobaciones:
 - La definición de duplicado se basa en la matriz actual sin reapertura ni ciclos. Si se amplía esa política habrá que revisar el detector; compartir valores no bastaría para declarar duplicación en un flujo con ciclos.
 - No acredita la integridad completa del historial: no exige un log de creación ni el primer cambio desde `open`. Una incidencia no resuelta sin logs no se marca por sí sola. No valida actores, metadata o autenticidad de timestamps; tampoco examina otras acciones o comentarios.
 - No se toma un snapshot transaccional global ni se bloquean operaciones. Cambios concurrentes entre las consultas pueden producir evidencia transitoria; repetir en un periodo estable antes de concluir. El uso de memoria queda acotado por lotes de incidencias, pero se carga el historial de cambios completo de cada lote.
-- No hay reparación, borrado, corrección de estado ni opción de escritura. Esta fase entrega simulación y diagnóstico; el mecanismo de reparación y su política quedan pendientes de otra tarea.
+- `--apply` evalúa las reparaciones, pero el conjunto actual de reparaciones automáticas seguras está vacío. No hay escritura implementada, borrado ni corrección de estado. No se ha añadido una transacción vacía, bloqueo innecesario ni prueba ficticia de rollback para aparentar una reparación.
+
+### Decisión de reparación de los tres casos
+
+| Caso                              | Evidencia insuficiente                                                                                                                                     | Decisión actual                                                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Resuelta sin log                  | El estado no demuestra cuándo, por quién ni desde qué estado se resolvió; también podría ser el estado el dato incorrecto.                                 | Revisión humana. No fabricar un `status_changed` histórico.                                                    |
+| Estado distinto del último cambio | El último log puede ser correcto, faltar un log posterior o existir un error en cualquiera de las dos fuentes.                                             | Revisión humana. No copiar automáticamente el último `new_value` al estado.                                    |
+| Log duplicado o incoherente       | Repetir valores evidencia una contradicción con la matriz, pero no demuestra qué registro sobra, si hubo un intento real ni qué actor/fecha son correctos. | Conservar los originales y solicitar revisión. No borrar, alterar ni declarar ignorado un log automáticamente. |
+
+El marcador de simulación solo identifica datos artificiales; no es prueba operativa ni autorización para repararlos. Por tanto, no se implementa ninguna reparación artificial para demostrar `--apply`. Transacciones de escritura, `lockForUpdate()` y rollback de reparación no son aplicables al comando actual porque no existe una operación de escritura justificada.
+
+### Procedimiento tras una decisión humana documentada
+
+Este procedimiento **no es una función ya implementada de `--apply`**, ni se ha ejecutado en desarrollo. Requiere autorización para la incidencia concreta, evidencia adicional y una intervención de mantenimiento revisada antes de escribir:
+
+1. Ejecutar dry-run sobre la base verificada, conservar la evidencia y asignar una referencia de decisión única. Documentar ID de incidencia/logs, estado y valores observados, fuentes externas, responsable que decide, corrección exacta y motivo. No usar datos de simulación como evidencia real. Si no se puede justificar una corrección, dejar el caso pendiente.
+2. Preparar y revisar una intervención acotada en Laravel. Ejecutarla primero en testing; usar `DB::transaction()` y volver a consultar la incidencia con `lockForUpdate()`, después sus logs ordenados con bloqueo. Todos los escritores de estado deben seguir bloqueando primero la incidencia, como la acción existente.
+3. Dentro de la transacción, comprobar que estado, IDs/valores/fechas de logs y evidencia siguen coincidiendo con lo aprobado; reejecutar el criterio afectado. Si divergen, abortar con rollback y nueva revisión. Buscar también logs correctivos de esa referencia: si ya se aplicó, terminar sin cambios. La comprobación de referencia debe realizarse bajo el mismo bloqueo, no antes.
+4. Solo si la decisión humana acredita el estado actual deseado, reconciliarlo con su valor observado como precondición. Registrar en la misma transacción `action = repair_applied`, valor anterior real, nuevo confirmado, operador que interviene **ahora**, fecha actual y metadata con referencia de decisión, IDs de evidencia, fuente, motivo y límites. Ese log describe una reparación actual, no sustituye un suceso histórico ni se hace pasar por una transición ordinaria. No usar el endpoint de transiciones para forzar un cambio que su matriz prohíbe.
+5. Para una resolución histórica no reconstruible o un log duplicado, se puede documentar una revisión aprobada con `action = repair_reviewed`, referencia y evidencia en metadata, sin inventar transición, actor ni fecha del pasado y sin eliminar los originales. Esta anotación **no subsana la ausencia o contradicción histórica**: el diagnóstico sigue mostrándola. La aceptación humana y cualquier futura política para tratar logs anulados necesitan diseño/revisión explícitos; no se ocultan avisos.
+6. Exigir resultado de escritura esperado, confirmar estado y registro correctivo juntos y propagar cualquier error para rollback completo. Volver a ejecutar diagnóstico y la intervención con la misma referencia: no debe duplicar logs ni volver a modificar datos. Registrar qué se corrigió y qué sigue pendiente; no declarar el historial íntegro solo por reconciliar el estado.
+
+Consultas de referencia para esa intervención futura, compatibles con MySQL 5.7 y **no ejecutadas por el comando actual**:
+
+```sql
+START TRANSACTION;
+SELECT id, status, updated_at FROM incidents WHERE id = ? FOR UPDATE;
+SELECT id, action, old_value, new_value, user_name, metadata, created_at
+FROM incident_logs WHERE incident_id = ?
+ORDER BY created_at ASC, id ASC FOR UPDATE;
+```
+
+El código de mantenimiento debe comparar aquí la evidencia aprobada y las referencias de decisión dentro del JSON leído. Si ya está aplicada, `COMMIT` sin escrituras; si cambió o es insuficiente, `ROLLBACK`. Solo en una reconciliación de estado expresamente aprobada se ejecutaría esta plantilla parametrizada:
+
+```sql
+UPDATE incidents SET status = ?, updated_at = UTC_TIMESTAMP()
+WHERE id = ? AND status = ?;
+INSERT INTO incident_logs
+    (incident_id, action, old_value, new_value, user_name, metadata, created_at)
+VALUES (?, 'repair_applied', ?, ?, ?, ?, UTC_TIMESTAMP());
+COMMIT;
+```
+
+No es un script listo para copiar: hay que vincular los valores revisados, validar el estado destino, construir metadata JSON con la decisión y comprobar que el UPDATE afectó exactamente una fila **antes** del INSERT; ante cualquier fallo, `ROLLBACK`, nunca `COMMIT` parcial. Si ya coincide el estado y no se necesita una nueva evidencia aprobada, no escribir. Las acciones `repair_applied`/`repair_reviewed` son convenciones propuestas para esa intervención, no nuevos eventos emitidos por la aplicación. Al no ser `status_changed`, no alteran qué considera el diagnóstico el último cambio histórico; los problemas que permanezcan se seguirán informando.
 
 ## Decisiones técnicas
 
@@ -344,6 +391,8 @@ Así se conserva el flujo de errores de formularios de Inertia sin usar un 409 q
 Se mantienen los middleware `web`, `auth` y `verified` del starter kit. No existen roles ni propiedad de incidencia que restrinjan a otros operadores autenticados. El modelo `User` actual no implementa `MustVerifyEmail`: conservar `verified` no activa una función nueva de verificación. El nombre autenticado debe respetar el límite de 120 caracteres del log; la acción devuelve error de validación si no lo cumple, sin truncarlo ni sustituirlo por datos del cliente. Los tests de integración comprueban el detalle actualizado después del PATCH y de un conflicto; la interacción React en navegador sigue pendiente.
 
 ## Verificación y limitaciones
+
+Evaluación de reparación (16 de octubre de 2026): 21 pruebas afectadas aprobadas, 102 aserciones en `IncidentDiagnosisTest`; conexiones de lectura/escritura verificadas como `prueba_optimaretail_test`, MySQL 5.7.44. Dry-run, rechazo de flags incompatibles, `--apply` para casos ambiguos/correctos y repetición sin cambios ni consultas de escritura comprobados. No hay reparación justificable ni rama de escritura/rollback que probar. Pint, PHPStan focalizado, ayuda del comando, formato y enlaces correctos; sin operaciones en desarrollo ni suite completa/frontend.
 
 Diagnóstico inicial (16 de octubre de 2026): 16 pruebas focalizadas aprobadas y 69 aserciones con `php artisan test --compact tests/Feature/IncidentDiagnosisTest.php`, tras comprobar ambas conexiones efectivas como MySQL `prueba_optimaretail_test`, servidor 5.7.44. Pint, PHPStan focalizado y ayuda del comando correctos. Incluye generación/repetición segura de ejemplos, datos válidos, tres clases de hallazgos, fecha/ID, exclusión de otras acciones y comprobación de solo SELECT/snapshots intactos en ejecución repetida. No se ejecutaron el seeder en desarrollo, suite completa ni checks frontend.
 

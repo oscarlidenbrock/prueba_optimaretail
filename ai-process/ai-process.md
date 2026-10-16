@@ -22,8 +22,9 @@ Los resultados concretos y las limitaciones de cada comprobación están en el r
 - Pantalla principal React: componentes tipados, tabla/tarjetas, filtros y paginación Inertia, formulario de creación y navegación Wayfinder, reutilizando layout, componentes y confirmaciones del starter kit.
 - Detalle React: información completa, línea temporal, comentarios y acciones permitidas por el servidor con confirmación, errores y fechas locales. Ajustes mínimos del contrato y redirecciones para integrar la pantalla sin duplicar la lógica transaccional.
 - Diagnóstico inicial: fixtures independientes de inconsistencias, comando de solo lectura con evidencia y pruebas de detección, datos correctos y repetibilidad. Consultas y límites documentados en el README.
+- Evaluación de reparaciones: dry-run predeterminado, `--apply` explícito, propuestas y casos pendientes. Sin reparaciones automáticas artificiales: la evidencia actual no permite determinar una corrección; procedimiento humano documentado y pruebas de no escritura/idempotencia.
 
-Edición, eliminación, seeders normales de incidencias y reparaciones de inconsistencias permanecen pendientes. Las pantallas implementadas todavía requieren revisión visual/interactiva.
+Edición, eliminación y seeders normales de incidencias permanecen pendientes. Los hallazgos requieren una decisión humana con evidencia adicional antes de corregirlos; el comando no implementa escrituras. Las pantallas implementadas todavía requieren revisión visual/interactiva.
 
 ## Decisiones técnicas y manuales confirmadas por el usuario
 
@@ -44,6 +45,8 @@ Para la pantalla principal, el usuario solicitó React 19, TypeScript y Tailwind
 En el detalle, se solicitaron historial, comentarios, acciones autorizadas por el servidor, confirmación de bloqueo/resolución y fechas españolas con distinción UTC/local. Se justificaron antes de implementar la prop de transiciones y la redirección al detalle; estos ajustes y el diseño concreto quedan pendientes de revisión manual del usuario.
 
 Para diagnóstico, el usuario pidió tres casos separados, generación explícita repetible y detección sin escrituras ni reparaciones. Identificadores de fixtures, criterios concretos de incoherencia, códigos de salida y estrategia de lotes son decisiones de implementación pendientes de revisión manual; sus limitaciones constan en el README.
+
+En la fase de reparación, el usuario autorizó explícitamente no automatizar cuando faltase evidencia y pidió un procedimiento posterior a una decisión documentada. Codex clasificó los tres casos como ambiguos y lo explicó antes de implementar; no se atribuye al usuario haber confirmado una fuente autoritativa o una corrección concreta. Evaluación y procedimiento están pendientes de revisión manual.
 
 ## Errores detectados en el código asistido por IA y correcciones realizadas
 

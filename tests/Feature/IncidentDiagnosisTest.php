@@ -74,6 +74,8 @@ test('diagnosis identifies all three explicit cases and their evidence', functio
         ->expectsOutputToContain("Incidencia #{$fixtures[0]->id} [resolved_without_resolution_log]")
         ->expectsOutputToContain("Incidencia #{$fixtures[1]->id} [status_mismatch] Estado actual=blocked; último log #{$latestMismatchLog->id}")
         ->expectsOutputToContain("Incidencia #{$fixtures[2]->id} [incoherent_status_log] Par de estados duplicado del log #{$duplicateLogs[0]->id}; log #{$duplicateLogs[1]->id}")
+        ->expectsOutput('Reparaciones automáticas justificadas: 0. Correcciones aplicadas: 0.')
+        ->expectsOutput('Se modificaría: nada. Las propuestas requieren una decisión humana documentada.')
         ->expectsOutputToContain('Incidencias revisadas: 3. Hallazgos: 3. Ningún dato modificado.')
         ->assertExitCode(1);
 });
@@ -107,6 +109,95 @@ test('empty databases have no findings', function () {
         ->expectsOutput('No se detectaron inconsistencias.')
         ->expectsOutput('Incidencias revisadas: 0. Hallazgos: 0. Ningún dato modificado.')
         ->assertExitCode(0);
+});
+
+test('apply preserves ambiguous fixtures and reports manual proposals instead of artificial repairs', function () {
+    $this->seed(InconsistentIncidentSeeder::class);
+    $before = diagnosisDataSnapshot();
+
+    $this->artisan('incidents:diagnose', ['--apply' => true])
+        ->expectsOutputToContain('Confirmar la resolución y su evidencia')
+        ->expectsOutputToContain('Contrastar estado e historial con evidencia externa')
+        ->expectsOutputToContain('Determinar si hubo duplicación o un cambio real mal registrado')
+        ->expectsOutput('Reparaciones automáticas justificadas: 0. Correcciones aplicadas: 0.')
+        ->expectsOutput('Hallazgos pendientes de revisión manual: 3.')
+        ->expectsOutput('No se aplicaron cambios: ningún caso dispone de evidencia suficiente para una reparación automática.')
+        ->assertExitCode(1);
+
+    expect(diagnosisDataSnapshot())->toBe($before);
+});
+
+test('repeated apply is idempotent and executes only selects for unproven repairs', function () {
+    $this->seed(InconsistentIncidentSeeder::class);
+    $before = diagnosisDataSnapshot();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        expect(Artisan::call('incidents:diagnose', ['--apply' => true]))->toBe(1);
+        $firstOutput = Artisan::output();
+        expect(Artisan::call('incidents:diagnose', ['--apply' => true]))->toBe(1);
+        expect(Artisan::output())->toBe($firstOutput);
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+
+    expect($queries)->not->toBeEmpty();
+    foreach ($queries as $query) {
+        expect(strtolower(ltrim($query['query'])))->toStartWith('select ');
+    }
+    expect(diagnosisDataSnapshot())->toBe($before);
+});
+
+test('conflicting execution flags fail before any diagnosis query or write', function () {
+    $this->seed(InconsistentIncidentSeeder::class);
+    $before = diagnosisDataSnapshot();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        $this->artisan('incidents:diagnose', ['--apply' => true, '--dry-run' => true])
+            ->expectsOutputToContain('Las opciones --apply y --dry-run no pueden combinarse.')
+            ->assertExitCode(2);
+        expect(DB::getQueryLog())->toBeEmpty();
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+
+    expect(diagnosisDataSnapshot())->toBe($before);
+});
+
+test('apply leaves correct data untouched and reports no repairs or manual findings', function () {
+    Incident::factory()->create();
+    $before = diagnosisDataSnapshot();
+
+    $this->artisan('incidents:diagnose', ['--apply' => true])
+        ->expectsOutput('No se detectaron inconsistencias.')
+        ->expectsOutput('Reparaciones automáticas justificadas: 0. Correcciones aplicadas: 0.')
+        ->expectsOutput('Hallazgos pendientes de revisión manual: 0.')
+        ->assertExitCode(0);
+
+    expect(diagnosisDataSnapshot())->toBe($before);
+});
+
+test('apply does not treat a plausible non-simulated log as authority over the current state', function () {
+    $incident = Incident::factory()->create(['status' => 'blocked']);
+    IncidentLog::factory()->for($incident)->create([
+        'action' => 'status_changed', 'old_value' => 'open', 'new_value' => 'in_review',
+        'user_name' => 'Operator', 'metadata' => null,
+    ]);
+    $before = diagnosisDataSnapshot();
+
+    $this->artisan('incidents:diagnose', ['--apply' => true])
+        ->expectsOutputToContain("Incidencia #{$incident->id} [status_mismatch]")
+        ->expectsOutput('Reparaciones automáticas justificadas: 0. Correcciones aplicadas: 0.')
+        ->expectsOutput('Hallazgos pendientes de revisión manual: 1.')
+        ->assertExitCode(1);
+
+    expect(diagnosisDataSnapshot())->toBe($before);
 });
 
 test('valid data uses chronological log order rather than insertion order and ignores unrelated actions', function () {
