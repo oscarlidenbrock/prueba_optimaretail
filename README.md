@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos y el backend de creación, listado y cambio de estado con auditoría transaccional. La página React de incidencias y las demás operaciones siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos y el backend de creación, listado, detalle con historial, comentarios y cambio de estado con auditoría transaccional. Las páginas React de incidencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -197,27 +197,39 @@ Los campos son obligatorios salvo los marcados nullable y los timestamps convenc
 - `incidents(status, created_at)` y `incidents(priority, created_at)`: filtro por estado o prioridad con orden por fecha.
 - `incident_logs(incident_id, created_at)` e `incident_comments(incident_id, created_at)`: historial y comentarios de una incidencia en orden temporal. Estos índices también soportan las claves foráneas, sin otro índice redundante en `incident_id`. InnoDB incorpora la clave primaria a los índices secundarios, permitiendo desempatar por `id`.
 
-La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP de creación, listado y cambio de estado; edición, eliminación, seeders y frontend de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP de creación, listado, detalle, comentarios y cambio de estado; edición, eliminación, seeders y frontend de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
 
 ## Backend HTTP de incidencias
 
-| Método y ruta                        | Nombre                    | Operación                                                         |
-| ------------------------------------ | ------------------------- | ----------------------------------------------------------------- |
-| GET/HEAD `/incidents`                | `incidents.index`         | Listado paginado y filtrado mediante `IncidentController::index`. |
-| POST `/incidents`                    | `incidents.store`         | Creación mediante `IncidentController::store`.                    |
-| PATCH `/incidents/{incident}/status` | `incidents.status.update` | Cambio de estado mediante `IncidentController::updateStatus`.     |
+| Método y ruta                         | Nombre                     | Operación                                                             |
+| ------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
+| GET/HEAD `/incidents`                 | `incidents.index`          | Listado paginado y filtrado mediante `IncidentController::index`.     |
+| POST `/incidents`                     | `incidents.store`          | Creación mediante `IncidentController::store`.                        |
+| GET/HEAD `/incidents/{incident}`      | `incidents.show`           | Detalle, historial y comentarios mediante `IncidentController::show`. |
+| POST `/incidents/{incident}/comments` | `incidents.comments.store` | Comentario mediante `IncidentCommentController::store`.               |
+| PATCH `/incidents/{incident}/status`  | `incidents.status.update`  | Cambio de estado mediante `IncidentController::updateStatus`.         |
 
 Son rutas web con sesión y los middleware `auth` y `verified` existentes, sin ampliar la autenticación. Se conserva la protección CSRF de las peticiones de escritura. No se introducen API separada, servicios ni acciones adicionales para estas operaciones.
 
 `StoreIncidentRequest` exige título (hasta 255 caracteres), descripción (hasta 10000), prioridad del enum y solicitante (hasta 120); responsable es opcional y admite hasta 120 caracteres. El límite de descripción permite almacenar incluso 10000 caracteres de cuatro bytes en la columna TEXT. Los mensajes de validación están en español. Se admiten únicamente los campos validados; el controlador establece `status = open`. La presencia de `status` en el payload, incluso vacío o null, se rechaza. La creación redirige a `incidents.index` con el aviso de éxito habitual de Inertia.
 
-La política de auditoría actual registra cambios de estado con `status_changed`; esta fase no añade un log `created` ni endpoints para consultar el historial. Las factories siguen siendo datos exclusivos de pruebas.
+La política de auditoría actual registra cambios de estado con `status_changed`; no se añaden logs de creación de incidencias ni de comentarios. Estos últimos conservan autor y fechas en su propia tabla. Las factories siguen siendo datos exclusivos de pruebas.
 
 `IndexIncidentRequest` valida `status`, `priority`, `q` y `page`. Los filtros vacíos se interpretan como ausencia de filtro; `q` admite hasta 255 caracteres. `page` debe ser un entero entre 1 y 2147483647 para evitar desbordamientos del offset. El scope `matchingFilters()` combina estado y prioridad con una búsqueda parcial en título **o** descripción, agrupada para no omitir restricciones. Se usa `LOCATE` con parámetros enlazados sobre MySQL: `%`, `_` y `!` se buscan literalmente y se conserva la comparación de la collation configurada.
 
 El listado ordena por `created_at DESC, id DESC`, pagina de 15 en 15 y conserva únicamente los filtros validados en los enlaces. La respuesta Inertia incluye `incidents` (paginador) y `filters` (valores activos); no carga logs ni comentarios.
 
-**Límite de esta fase:** la respuesta prepara el contrato Inertia de `incidents/index`, pero ese componente React todavía no existe porque su implementación está fuera del alcance solicitado. La navegación HTML y el renderizado del listado no están disponibles hasta añadirlo; la plantilla actual necesita el asset de la página. Los tests verifican el backend por protocolo Inertia, enviando la versión real de assets y manteniendo los middleware. No se acredita una pantalla funcional ni se desactiva la comprobación de componentes para simularla. Las rutas operativas requieren además aplicar las migraciones pendientes en desarrollo antes de usarse allí.
+### Detalle, historial y comentarios
+
+GET `incidents.show` prepara el componente Inertia `incidents/show` con una prop `incident`: todos los campos de la incidencia y las colecciones anidadas `logs` y `comments`, sin paginación en este detalle. Los estados y prioridades se serializan con sus identificadores ingleses; las fechas, como ISO 8601 en UTC. Se incluyen todos los campos persistidos de logs (incluido `metadata` como estructura JSON o null, y valores anterior/nuevo nullable) y comentarios. Las colecciones vacías son arrays vacíos. Se cargan exclusivamente las relaciones de la incidencia consultada.
+
+El historial se ordena por `created_at DESC, id DESC`. La consulta usa `reorder()` para sustituir el orden ascendente predeterminado de la relación sin modificarla globalmente. Los comentarios mantienen `created_at ASC, id ASC`.
+
+POST `incidents.comments.store` recibe `body`: texto obligatorio, no vacío tras el recorte de espacios habitual de Laravel y máximo de 10000 caracteres, compatible con TEXT y `utf8mb4`. `StoreIncidentCommentRequest` sustituye cualquier `author_name` recibido por el nombre del usuario autenticado **antes** de validar; exige un nombre no vacío de hasta 120 caracteres, sin truncarlo ni recurrir al cliente. El controlador solo persiste esos dos campos mediante `comments()`; el ID de incidencia lo determina la ruta, no el payload. No modifica la incidencia ni sus logs y no necesita una transacción de múltiples escrituras.
+
+El éxito redirige con 303 a `incidents.show` y flash `toast` de éxito «Comentario añadido correctamente.». Validación: mensajes españoles por campo, JSON 422 o redirección POST 302 con errores de sesión para Inertia. Incidencias inexistentes: 404. Invitados: redirección a login o JSON 401. Se conserva el acceso actual sin añadir roles ni activar verificación de correo.
+
+**Límite de esta fase:** los contratos Inertia de `incidents/index` e `incidents/show` están preparados, pero sus componentes React todavía no existen porque su implementación está fuera del alcance solicitado. La navegación visual HTML, el renderizado de listado/detalle y los formularios siguen pendientes; la plantilla actual necesita el asset de cada página. Los tests verifican el backend por protocolo Inertia, enviando la versión real de assets y manteniendo los middleware. No se acredita una pantalla funcional ni se desactiva la comprobación de componentes para simularla. Las rutas operativas requieren además aplicar las migraciones pendientes en desarrollo antes de usarse allí.
 
 ## Transiciones de estado
 

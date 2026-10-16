@@ -18,8 +18,9 @@ Los resultados concretos y las limitaciones de cada comprobación están en el r
 - Lógica interna de transiciones: reglas centralizadas, acción de cambio de estado con bloqueo y auditoría transaccional y tests de integridad, estados desactualizados y rollback.
 - Backend de creación y listado: controlador, Form Requests, rutas autenticadas, filtros Eloquent y pruebas HTTP, preparando el contrato Inertia de una página todavía pendiente.
 - Endpoint HTTP de cambio de estado: reutilización de la acción transaccional, actor autenticado y distinción entre validación y conflicto, con respuestas y flash compatibles con Inertia.
+- Consulta de detalle e historial y creación de comentarios: relaciones ordenadas, contrato Inertia sin pantalla React, validación y autor autenticado, con pruebas HTTP.
 
-Edición, eliminación, consulta de historial, comentarios, seeders de incidencias, frontend del panel y diagnóstico de inconsistencias permanecen pendientes.
+Edición, eliminación, seeders de incidencias, frontend del panel y diagnóstico de inconsistencias permanecen pendientes.
 
 ## Decisiones técnicas y manuales confirmadas por el usuario
 
@@ -32,6 +33,8 @@ Edición, eliminación, consulta de historial, comentarios, seeders de incidenci
 - En el endpoint de estado: ruta PATCH protegida con el acceso actual, validación mediante Form Request, reutilización de la acción existente, actor obtenido únicamente de la sesión y errores diferenciados. La excepción de dominio, los códigos JSON y el flash de conflicto en redirecciones Inertia son decisiones de implementación pendientes de revisión manual.
 
 Los tamaños de campos, defaults, índices y política restrictiva de claves foráneas fueron decisiones de implementación de Codex, documentadas para revisión. No se consideran revisadas manualmente por el usuario. Tampoco se atribuyen al usuario comprobaciones visuales o de instalación limpia que no se hayan realizado.
+
+Para detalle y comentarios, el usuario confirmó los órdenes temporales, el autor exclusivamente autenticado y la preparación del contrato sin componentes React. La estructura de props, el límite de contenido y las respuestas concretas son decisiones de implementación pendientes de revisión, detalladas en el registro de prompts y el README.
 
 ## Errores detectados en el código asistido por IA y correcciones realizadas
 

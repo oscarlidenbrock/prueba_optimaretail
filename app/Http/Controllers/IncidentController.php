@@ -17,6 +17,16 @@ use Inertia\Response;
 
 class IncidentController extends Controller
 {
+    public function show(Incident $incident): Response
+    {
+        $incident->load([
+            'logs' => fn ($query) => $query->reorder()->orderByDesc('created_at')->orderByDesc('id'),
+            'comments',
+        ]);
+
+        return Inertia::render('incidents/show', ['incident' => $incident]);
+    }
+
     public function index(IndexIncidentRequest $request): Response
     {
         $status = $request->enum('status', IncidentStatus::class);
