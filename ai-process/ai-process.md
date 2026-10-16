@@ -14,6 +14,7 @@ Los resultados concretos y las limitaciones de cada comprobación están en el r
 - Preparación del entorno MySQL y aislamiento de pruebas, incluida la protección anterior a las migraciones de tests.
 - Correcciones de la navegación de ajustes y de una factory del starter kit, con pruebas de regresión y sin ampliar la autenticación.
 - Configuración de GitHub Actions con un servicio MySQL y credenciales exclusivas de CI, revisión de instalación y documentación del proyecto.
+- Revisión de seguridad de herramientas frontend. La propuesta inicial de actualizar Vite Plus exigió un alias y después produjo conflictos de peers en una instalación limpia. La alternativa autorizada conserva el toolchain anterior y fija únicamente Tinypool bajo Oxfmt: se comprobó primero aisladamente y después con instalación, audits y comprobaciones frontend reales. La compatibilidad no se dedujo solo de que fuese una versión patch; evidencias y límites en el registro de desarrollo.
 - Primera fase del modelo de datos: migraciones, modelos Eloquent, relaciones, enums, factories y tests de incidencias, logs y comentarios.
 - Lógica interna de transiciones: reglas centralizadas, acción de cambio de estado con bloqueo y auditoría transaccional y tests de integridad, estados desactualizados y rollback.
 - Backend de creación y listado: controlador, Form Requests, rutas autenticadas, filtros Eloquent y pruebas HTTP, con contrato Inertia reutilizado por la pantalla principal.
