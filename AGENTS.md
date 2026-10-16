@@ -149,21 +149,21 @@ The user authorizes creating and updating these documents as part of development
 - `docs/development.md`: implementation progress, technical decisions, issues, and verification.
 - `ai-process/technical-assessment-scope.md`: assessment requirements and clearly separated project decisions; follow the scope rules above.
 - `/ai-process/ai-process.md`: AI tools, prompt summary, AI-assisted parts, confirmed manual decisions, and actual errors/corrections.
-- `/ai-process/prompts.md`: chronological record of development requests and outcomes.
+- `/ai-process/prompts.md`: chronological record limited to programming changes and architectural decisions.
 
 Keep `/ai-process` at repository root as required by the assessment. Reuse the exact documentation paths above; do not create a duplicate AI overview or development journal.
 
-After each development task, append one concise entry to `ai-process/prompts.md` containing:
+Append an entry to `ai-process/prompts.md` only when a task implements or changes application code, fixes a programming defect, refactors code, or introduces or changes an architectural decision. For each qualifying task, include:
 
 1. Date and task title.
 2. The actual prompt or a clearly labeled faithful summary.
-3. Changes made and relevant decisions.
-4. Checks executed and their results, including any failures or checks not run.
-5. Manual review confirmed by the user, or explicitly pending review.
-6. A commit reference only if it exists and was verified; otherwise omit it or mark it pending.
+3. Programming changes made and architectural decisions, with their relevant reasons.
+4. Manual design decisions or corrections confirmed by the user, or explicitly pending review.
 
-- Log significant follow-up corrections. A documentation-only change may be included in the same task entry; do not recursively log the act of writing the log.
-- Do not invent prompts, manual reviews, errors, tool use, timings, or commit hashes.
+- Do not add entries for commit or other Git requests, configuration or environment changes, dependency setup, requested checks or verification runs, read-only reviews, documentation changes, or edits to agent instructions. This logging-policy change does not require a prompt entry.
+- For mixed tasks, record only the programming or architecture work. Do not include commit logs or hashes, configuration steps, command transcripts, or check results in `ai-process/prompts.md`. Keep relevant operational details and verification results in `docs/development.md` instead.
+- Log significant follow-up corrections only when they change programming or architecture. Do not recursively log the act of maintaining documentation.
+- Do not invent prompts, programming changes, architectural decisions, manual reviews, or corrections.
 - Exclude secrets and personal data from prompts and documentation. Redact sensitive values rather than copying `.env` contents.
 - Keep documentation concise, distinguish implemented from planned behavior, and update commands when implementation changes.
 
