@@ -2,12 +2,13 @@
 
 use App\Http\Controllers\IncidentCommentController;
 use App\Http\Controllers\IncidentController;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', fn (): RedirectResponse => to_route('incidents.index'))->name('dashboard');
     Route::resource('incidents', IncidentController::class)->only(['index', 'store', 'show']);
     Route::post('incidents/{incident}/comments', [IncidentCommentController::class, 'store'])
         ->name('incidents.comments.store');

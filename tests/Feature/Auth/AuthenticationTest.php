@@ -20,6 +20,21 @@ test('users can authenticate using the login screen', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('dashboard', absolute: false));
+
+    $this->get(route('dashboard'))->assertRedirect(route('incidents.index'));
+});
+
+test('login after requesting the dashboard leads to incidents without changing the intended redirect', function () {
+    $user = User::factory()->create();
+    $this->get(route('dashboard'))->assertRedirect(route('login'));
+
+    $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($user);
+    $this->get(route('dashboard'))->assertRedirect(route('incidents.index'));
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {

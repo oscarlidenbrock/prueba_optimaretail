@@ -94,7 +94,7 @@ php artisan db:seed --no-interaction
 
 Crea únicamente el usuario de demostración del starter kit: correo `test@example.com` y contraseña `password`. Son datos sintéticos de demostración, no credenciales de MySQL. Ejecutarlo de nuevo puede fallar porque el correo ya existe. No hay todavía un seeder normal de incidencias. El seeder independiente de inconsistencias no se llama desde este flujo; consultar [diagnóstico](#diagnóstico-de-inconsistencias) para su ejecución explícita.
 
-La autenticación procede del starter kit y no es obligatoria para la prueba técnica. El panel heredado requiere iniciar sesión.
+La autenticación procede del starter kit y no es obligatoria para la prueba técnica. Las rutas del panel requieren iniciar sesión. Se conserva el destino de Fortify `/dashboard`: esa ruta GET/HEAD redirige con 302 a `/incidents` bajo los middleware `auth` y `verified`. Así, el login sin destino previo y el acceso solicitado a `/dashboard` conducen al listado, sin alterar credenciales ni el comportamiento de destinos solicitados de otras rutas. El sidebar muestra únicamente «Incidencias» como sección principal.
 
 ## Arranque
 
