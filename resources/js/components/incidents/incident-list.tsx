@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { IncidentDate } from '@/components/incidents/incident-date';
+import { IncidentListStatusForm } from '@/components/incidents/incident-list-status-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { incidentPriorities, incidentStatuses } from '@/lib/incidents';
@@ -53,6 +54,7 @@ export function IncidentList({
     filters: IncidentFilters;
 }) {
     const filtered = !!(filters.status || filters.priority || filters.q);
+    const context = { ...filters, page: incidents.current_page };
 
     return (
         <div className="grid min-w-0 gap-4">
@@ -118,6 +120,12 @@ export function IncidentList({
                                             <p className="mt-1 text-xs text-muted-foreground">
                                                 #{incident.id}
                                             </p>
+                                            <div className="mt-3">
+                                                <IncidentListStatusForm
+                                                    incident={incident}
+                                                    context={context}
+                                                />
+                                            </div>
                                         </td>
                                         <td className="px-4 py-4">
                                             <Badge
@@ -217,6 +225,10 @@ export function IncidentList({
                                         </dd>
                                     </div>
                                 </dl>
+                                <IncidentListStatusForm
+                                    incident={incident}
+                                    context={context}
+                                />
                             </li>
                         ))}
                     </ul>

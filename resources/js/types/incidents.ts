@@ -19,8 +19,14 @@ export type IncidentFilters = {
     q: string;
 };
 
+export type IncidentListItem = Incident & {
+    allowed_transitions: IncidentStatus[];
+};
+
+export type IncidentListContext = IncidentFilters & { page: number };
+
 export type IncidentPagination = {
-    data: Incident[];
+    data: IncidentListItem[];
     current_page: number;
     last_page: number;
     from: number | null;

@@ -1,18 +1,10 @@
 import { useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { IncidentStatusConfirmation } from '@/components/incidents/incident-status-confirmation';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogClose,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { incidentStatuses } from '@/lib/incidents';
 import { update } from '@/routes/incidents/status';
 import type { IncidentStatus } from '@/types/incidents';
@@ -116,54 +108,15 @@ export function IncidentStatusActions({
                                 ),
                             )}
                         </div>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>
-                                    {pendingStatus === 'blocked'
-                                        ? 'Confirmar bloqueo'
-                                        : 'Confirmar resolución'}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    ¿Quieres{' '}
-                                    {pendingStatus === 'blocked'
-                                        ? 'bloquear'
-                                        : 'resolver'}{' '}
-                                    esta incidencia? El cambio quedará
-                                    registrado con tu nombre y su fecha. Este
-                                    estado no dispone de transiciones
-                                    posteriores.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        disabled={form.processing}
-                                    >
-                                        Cancelar
-                                    </Button>
-                                </DialogClose>
-                                <Button
-                                    type="button"
-                                    disabled={form.processing}
-                                    variant={
-                                        pendingStatus === 'blocked'
-                                            ? 'destructive'
-                                            : 'default'
-                                    }
-                                    onClick={() => {
-                                        if (pendingStatus) {
-                                            changeStatus(pendingStatus);
-                                        }
-                                    }}
-                                >
-                                    {form.processing
-                                        ? 'Guardando…'
-                                        : 'Confirmar cambio'}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
+                        <IncidentStatusConfirmation
+                            status={pendingStatus}
+                            processing={form.processing}
+                            onConfirm={() => {
+                                if (pendingStatus) {
+                                    changeStatus(pendingStatus);
+                                }
+                            }}
+                        />
                     </Dialog>
                 )}
                 {form.processing && (

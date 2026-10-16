@@ -26,10 +26,10 @@ class IncidentController extends Controller
 
         return Inertia::render('incidents/show', [
             'incident' => $incident,
-            'allowedTransitions' => array_values(array_map(
+            'allowedTransitions' => array_map(
                 fn (IncidentStatus $status): string => $status->value,
-                array_filter(IncidentStatus::cases(), fn (IncidentStatus $status): bool => $incident->status->canTransitionTo($status)),
-            )),
+                $incident->status->allowedTransitions(),
+            ),
         ]);
     }
 
@@ -45,7 +45,14 @@ class IncidentController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(15)
-            ->appends($filters);
+            ->appends($filters)
+            ->through(fn (Incident $incident): array => [
+                ...$incident->toArray(),
+                'allowed_transitions' => array_map(
+                    fn (IncidentStatus $status): string => $status->value,
+                    $incident->status->allowedTransitions(),
+                ),
+            ]);
 
         return Inertia::render('incidents/index', [
             'incidents' => $incidents,
@@ -70,6 +77,10 @@ class IncidentController extends Controller
         Incident $incident,
         ChangeIncidentStatus $changeIncidentStatus,
     ): RedirectResponse|JsonResponse {
+        $redirect = $request->has('list_context')
+            ? to_route('incidents.index', $request->validated('list_context', []), 303)
+            : to_route('incidents.show', $incident, 303);
+
         try {
             $changeIncidentStatus->handle(
                 $incident,
@@ -91,8 +102,7 @@ class IncidentController extends Controller
                 'code' => 'incident_status_conflict',
             ]);
 
-            return to_route('incidents.show', $incident, 303)
-                ->withErrors(['status' => $exception->getMessage()]);
+            return $redirect->withErrors(['status' => $exception->getMessage()]);
         }
 
         Inertia::flash('toast', [
@@ -100,6 +110,6 @@ class IncidentController extends Controller
             'message' => 'Estado de la incidencia actualizado correctamente.',
         ]);
 
-        return to_route('incidents.show', $incident, 303);
+        return $redirect;
     }
 }
