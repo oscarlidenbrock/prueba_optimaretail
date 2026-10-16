@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. El proyecto está en preparación: conserva las pantallas y la autenticación del starter kit; las funcionalidades de incidencias todavía no están implementadas.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Está implementado el modelo de datos con migraciones, modelos Eloquent y enums; las operaciones y pantallas de incidencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -80,7 +80,7 @@ Estos pasos describen una instalación nueva con una base vacía, por ejemplo `p
     npm run build
     ```
 
-    Las migraciones actuales crean las tablas del starter kit, incluidas sesiones, caché y colas. Las migraciones de incidencias siguen pendientes. `SESSION_DRIVER`, `CACHE_STORE` y `QUEUE_CONNECTION` utilizan la base de datos; no hace falta instalar Redis.
+    Las migraciones actuales crean las tablas del starter kit, incluidas sesiones, caché y colas, y las tablas `incidents`, `incident_logs` e `incident_comments`. `SESSION_DRIVER`, `CACHE_STORE` y `QUEUE_CONNECTION` utilizan la base de datos; no hace falta instalar Redis.
 
 En el entorno ya preparado, preferir los pasos explícitos de comprobación y `php artisan migrate` a `composer setup`: ese script ejecuta migraciones automáticamente antes de compilar.
 
@@ -163,7 +163,7 @@ El plugin de fuentes de Laravel Vite intenta generar fuentes de sustitución con
 
 Pendiente de implementación. Todavía no existen el comando o servicio de diagnóstico, sus consultas SQL/Eloquent, la opción `dry-run` ni los tres casos de ejemplo exigidos: resolución sin log, estado distinto del último cambio y log duplicado o incoherente. No hay un comando de diagnóstico ejecutable que pueda documentarse aún.
 
-Al implementar esa tarea se añadirán aquí los comandos reales, las consultas, su justificación, la política de reparación y los casos que requieren revisión manual. Las incidencias, sus estados, comentarios e historial también siguen pendientes.
+Al implementar esa tarea se añadirán aquí los comandos reales, las consultas, su justificación, la política de reparación y los casos que requieren revisión manual. El modelo de datos de incidencias, logs y comentarios ya existe; sus operaciones de aplicación todavía están pendientes.
 
 ## Decisiones técnicas
 
@@ -173,9 +173,37 @@ Al implementar esa tarea se añadirán aquí los comandos reales, las consultas,
 - Se conserva la caché de infraestructura del starter kit en base de datos. No se ha añadido caché de incidencias ni Redis.
 - Identificadores y comentarios de código en inglés; documentación e interfaz del dominio en español.
 
+## Modelo de datos de incidencias
+
+Las tres tablas usan IDs `BIGINT UNSIGNED`, InnoDB, `utf8mb4` y `utf8mb4_unicode_ci`, comprobados mediante pruebas en MySQL 5.7.44. Las nuevas migraciones crean tablas vacías; no transforman datos existentes ni cargan ejemplos.
+
+| Tabla               | Campos y decisiones                                                                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `incidents`         | `title` VARCHAR(255), `description` TEXT, `status` VARCHAR(32) con default `open`, `priority` VARCHAR(16) con default `medium`, `requester_name` VARCHAR(120), `assigned_to` VARCHAR(120) nullable y timestamps de Laravel.           |
+| `incident_logs`     | `incident_id` obligatorio, `action` VARCHAR(64), `old_value` y `new_value` TEXT nullable, `user_name` VARCHAR(120), `metadata` JSON nullable y `created_at` TIMESTAMP obligatorio con default de fecha actual. No tiene `updated_at`. |
+| `incident_comments` | `incident_id` obligatorio, `author_name` VARCHAR(120), `body` TEXT y timestamps de Laravel.                                                                                                                                           |
+
+Los campos son obligatorios salvo los marcados nullable y los timestamps convencionales de Laravel (`created_at`/`updated_at`), que permiten NULL en el esquema y se rellenan automáticamente desde Eloquent. La aplicación mantiene su zona horaria UTC; los timestamps tienen precisión de segundos. `IncidentLog::UPDATED_AT = null` conserva la gestión automática de `created_at` sin escribir una columna de modificación inexistente. Esto no convierte los logs en inmutables ni implementa todavía una política de reparación.
+
+`IncidentStatus` centraliza `open`, `in_review`, `blocked` y `resolved`; `IncidentPriority`, `low`, `medium` y `high`. Los casts Eloquent convierten los strings almacenados en enums PHP. No se utilizan ENUM nativos ni CHECK como mecanismo de validación en MySQL 5.7; la futura validación de peticiones deberá respetar los enums y los límites del esquema. Los defaults de las migraciones son literales para conservar su independencia respecto a futuras modificaciones del código de los enums.
+
+`assigned_to` contiene un nombre opcional, sin relación con `users`. Solicitante, responsable y autores son nombres, sin implicar una identidad autenticada. `metadata` se convierte a array; `old_value` y `new_value` permanecen como texto nullable, porque su significado dependerá de `action`. El vocabulario de acciones y el registro automático de cambios críticos se definirán al implementar esas operaciones; los datos de las factories solo sirven para preparar pruebas.
+
+`Incident` tiene relaciones `logs()` y `comments()` de uno a muchos, y ambos modelos relacionados tienen `incident()`. Las claves foráneas restringen borrados y cambios del ID del padre para preservar historial y comentarios. Las relaciones se ordenan por `created_at` y después por `id` para resolver empates.
+
+Índices para las consultas previstas del alcance:
+
+- `incidents(created_at)`: listado por fecha sin filtros.
+- `incidents(status, created_at)` y `incidents(priority, created_at)`: filtro por estado o prioridad con orden por fecha.
+- `incident_logs(incident_id, created_at)` e `incident_comments(incident_id, created_at)`: historial y comentarios de una incidencia en orden temporal. Estos índices también soportan las claves foráneas, sin otro índice redundante en `incident_id`. InnoDB incorpora la clave primaria a los índices secundarios, permitiendo desempatar por `id`.
+
+La selección de índices se revisará al implementar y medir las consultas reales. No se implementan aún CRUD, transiciones, controladores, seeders ni frontend. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+
 ## Verificación y limitaciones
 
-Últimas comprobaciones registradas el 16 de octubre de 2026, incluida la corrección del estado de factory `withTwoFactor()`:
+Fase del modelo de datos (16 de octubre de 2026): `php artisan test --compact tests/Feature/IncidentModelTest.php` pasa con 19 pruebas y 65 aserciones. Antes de ejecutarlo se verificaron ambas conexiones efectivas (lectura y escritura) como MySQL `prueba_optimaretail_test`, servidor 5.7.44. Pasan Pint y PHPStan sobre el código nuevo. No se repitieron la suite completa ni los checks de frontend en esta fase; los resultados siguientes corresponden a comprobaciones anteriores.
+
+Comprobaciones de preparación anteriores al modelo de datos, incluida la corrección del estado de factory `withTwoFactor()`:
 
 - Prueba de humo: 1 aprobada.
 - Redirección de ajustes: 8 pruebas aprobadas; se conserva el destino, el estado 302 y la autenticación, y se rechazan los métodos de escritura y QUERY.
