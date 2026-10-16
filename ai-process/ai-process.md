@@ -1,73 +1,46 @@
 # Uso de IA
 
-Este documento resume la asistencia de IA en el proyecto y se actualiza al finalizar fases relevantes. Las peticiones de programación y los resultados operativos se conservan en los registros detallados enlazados al final, sin reproducir aquí su cronología.
+Este resumen explica cómo se utilizó IA para desarrollar el **Panel operativo de incidencias** y qué control se aplicó sobre sus resultados. No sustituye al enunciado ni al historial: las peticiones de programación y las verificaciones se mantienen en documentos separados. Se actualiza al cerrar fases relevantes, sin convertir cada tarea en una entrada cronológica.
 
-## Herramientas de IA y herramientas de validación utilizadas
+## Herramientas de IA y de validación
 
-- **Asistencia de IA:** Codex para analizar requisitos, proponer cambios, generar código y pruebas y mantener documentación. Laravel Boost como apoyo para consultar documentación, esquema, versión real de MySQL y datos mediante consultas de lectura; también se consultaron el código instalado y documentación oficial.
-- **Validación:** PHP/Artisan, Pest, Pint, PHPStan, TypeScript, scripts de formato y lint, compilación con Vite, Composer/npm, consultas SQL y revisión de diferencias con Git. Las respuestas HTTP se comprobaron por separado del intento de revisión visual con el navegador integrado.
+Codex asistió en el análisis del enunciado, la implementación incremental, la preparación de pruebas y la documentación. Laravel Boost permitió consultar documentación, esquema y datos mediante lecturas; cuando fue necesario, se revisaron el código instalado, metadatos de paquetes y documentación oficial. Las propuestas de IA se contrastaron con el alcance y las convenciones del proyecto.
 
-Los resultados concretos y las limitaciones de cada comprobación están en el registro de desarrollo. No se registran credenciales ni contenidos de archivos de entorno.
+Se utilizaron PHP/Artisan, Pest, Pint, PHPStan, TypeScript, Vite Plus, Vitest, Composer/npm, SQL y Git. GitHub Actions proporcionó validación remota del commit identificado en el registro de desarrollo. Los resultados HTTP, el renderizado estático y la comprobación manual en navegador son evidencias distintas. No se incluyen secretos ni contenidos de archivos de entorno en estos registros.
 
-## Partes del proyecto desarrolladas con asistencia de IA
+## Contribuciones con asistencia de IA
 
-- Preparación del entorno MySQL y aislamiento de pruebas, incluida la protección anterior a las migraciones de tests.
-- Correcciones de la navegación de ajustes y de una factory del starter kit, con pruebas de regresión y sin ampliar la autenticación.
-- Configuración de GitHub Actions con un servicio MySQL y credenciales exclusivas de CI, revisión de instalación y documentación del proyecto.
-- Revisión de seguridad de herramientas frontend. La propuesta inicial de actualizar Vite Plus exigió un alias y después produjo conflictos de peers en una instalación limpia. La alternativa autorizada conserva el toolchain anterior y fija únicamente Tinypool bajo Oxfmt: se comprobó primero aisladamente y después con instalación, audits y comprobaciones frontend reales. La compatibilidad no se dedujo solo de que fuese una versión patch; evidencias y límites en el registro de desarrollo.
-- Primera fase del modelo de datos: migraciones, modelos Eloquent, relaciones, enums, factories y tests de incidencias, logs y comentarios.
-- Lógica interna de transiciones: reglas centralizadas, acción de cambio de estado con bloqueo y auditoría transaccional y tests de integridad, estados desactualizados y rollback.
-- Backend de creación y listado: controlador, Form Requests, rutas autenticadas, filtros Eloquent y pruebas HTTP, con contrato Inertia reutilizado por la pantalla principal.
-- Endpoint HTTP de cambio de estado: reutilización de la acción transaccional, actor autenticado y distinción entre validación y conflicto, con respuestas y flash compatibles con Inertia.
-- Consulta de detalle e historial y creación de comentarios: relaciones ordenadas, contrato Inertia, validación y autor autenticado, con pruebas HTTP.
-- Pantalla principal React: componentes tipados, tabla/tarjetas, filtros y paginación Inertia, formulario de creación y navegación Wayfinder, reutilizando layout, componentes y confirmaciones del starter kit.
-- Ajustes finales de interfaz: identidad propia en el sidebar, eliminación de enlaces genéricos, acceso al formulario con foco, enlaces de detalle distinguibles y fechas locales simplificadas, sin rediseñar las pantallas. Cambio de estado desde tabla y tarjetas con destinos calculados por el enum, confirmación compartida con detalle y contexto validado para conservar filtros/página; pruebas de renderizado con la herramienta existente y pruebas HTTP.
-- Navegación principal: `/dashboard` redirige a incidencias conservando middleware y destino de Fortify; menú lateral limitado a Incidencias, sin ampliar autenticación ni cambiar pantallas.
-- Detalle React: información completa, línea temporal, comentarios y acciones permitidas por el servidor con confirmación, errores y fechas locales. Ajustes mínimos del contrato y redirecciones para integrar la pantalla sin duplicar la lógica transaccional.
-- Diagnóstico inicial: fixtures independientes de inconsistencias, comando de solo lectura con evidencia y pruebas de detección, datos correctos y repetibilidad. Consultas y límites documentados en el README.
-- Evaluación de reparaciones: dry-run predeterminado, `--apply` explícito, propuestas y casos pendientes. Sin reparaciones automáticas artificiales: la evidencia actual no permite determinar una corrección; procedimiento humano documentado y pruebas de no escritura/idempotencia.
+La asistencia abarcó migraciones, modelos Eloquent, relaciones, enums, factories y pruebas de incidencias, logs y comentarios. También incluyó creación y listado con filtros combinables, validación mediante Form Requests, paginación y operaciones HTTP protegidas por la autenticación existente.
 
-Edición, eliminación y seeders normales de incidencias permanecen pendientes. Los hallazgos requieren una decisión humana con evidencia adicional antes de corregirlos; el comando no implementa escrituras. El usuario ha comunicado comprobación manual de estructura responsive, distribución, indicadores y formularios; los últimos ajustes de interfaz aún requieren comprobación interactiva.
+La operación de cambio de estado quedó encapsulada en una acción: consulta y bloqueo del registro dentro de una transacción, validación del estado actual y escritura conjunta de la incidencia y su auditoría. Las pruebas cubren transiciones válidas, inválidas, repetidas, instancias obsoletas y rollback.
 
-## Decisiones técnicas y manuales confirmadas por el usuario
+En React se construyeron listado responsive, formulario de creación, filtros Inertia, detalle, historial, comentarios y cambios de estado. Wayfinder conserva las rutas tipadas; el servidor determina los destinos permitidos. La confirmación de bloqueo o resolución se comparte entre listado y detalle, sin duplicar la matriz de negocio.
 
-- Laravel, MySQL, Inertia + React, TypeScript y Tailwind; identificadores y comentarios en inglés e interfaz y documentación en español. Desarrollo incremental, conservando la autenticación del starter kit sin ampliarla.
-- Pruebas exclusivamente en `prueba_optimaretail_test`, compatibles con MySQL 5.7, con credenciales locales en `.env.testing` excluido de Git. Se autorizaron migraciones normales en desarrollo tras comprobar destino y pendientes; siguen prohibidos allí los tests, la limpieza y los reinicios destructivos sin autorización expresa.
-- Para la navegación de ajustes, limitar la ruta a GET/HEAD conservando destino y comportamiento. Para `UserFactory`, se autorizó implementar un estado real si las referencias existentes justificaban conservarlo; Codex eligió esa alternativa tras encontrar su uso.
-- En el modelo de datos: estados y prioridades especificados por el usuario, persistencia VARCHAR, responsable como nombre opcional, metadata JSON nullable, valores auditados nullable y logs con solo `created_at`.
-- En las transiciones: únicamente abierta a revisión y revisión a bloqueada o resuelta, rechazando repeticiones; bloqueo de fila y auditoría en una misma transacción, con propagación de errores y rollback. La validación del nombre del actor y el contrato de retorno son decisiones de implementación pendientes de revisión manual.
-- En creación/listado: campos requeridos, estado inicial impuesto por servidor, filtros combinables, orden por fecha e ID y acceso autenticado sin ampliar la autenticación. Preparar el contrato Inertia sin crear una página React, los límites adicionales y mantener solo auditoría de cambios de estado son decisiones de implementación pendientes de revisión manual.
-- En el endpoint de estado: ruta PATCH protegida con el acceso actual, validación mediante Form Request, reutilización de la acción existente, actor obtenido únicamente de la sesión y errores diferenciados. La excepción de dominio, los códigos JSON y el flash de conflicto en redirecciones Inertia son decisiones de implementación pendientes de revisión manual.
+Se añadieron tres fixtures de inconsistencias independientes, diagnóstico de solo lectura y evaluación conservadora de reparaciones. Las consultas, evidencia y límites están documentados. Los ejemplos ambiguos requieren revisión humana: no se fabrican acontecimientos ni se borran logs para aparentar una reparación.
 
-Los tamaños de campos, defaults, índices y política restrictiva de claves foráneas fueron decisiones de implementación de Codex, documentadas para revisión. No se consideran revisadas manualmente por el usuario. Tampoco se atribuyen al usuario comprobaciones visuales o de instalación limpia que no se hayan realizado.
+## Decisiones humanas y verificaciones confirmadas
 
-Para detalle y comentarios, el usuario confirmó los órdenes temporales, el autor exclusivamente autenticado y la preparación del contrato sin componentes React. La estructura de props, el límite de contenido y las respuestas concretas son decisiones de implementación pendientes de revisión, detalladas en el registro de prompts y el README.
+El usuario eligió Laravel, MySQL, Inertia + React, TypeScript y Tailwind; pidió identificadores en inglés e interfaz/documentación en español. Dirigió el desarrollo por fases, conservando la autenticación del starter kit y evitando dependencias, servicios o funcionalidades innecesarias.
 
-Para la pantalla principal, el usuario solicitó React 19, TypeScript y Tailwind 4, reutilizar el starter kit y el backend y limitar la interfaz a listado, filtros y creación. El diseño concreto, los breakpoints y los componentes extraídos son decisiones de implementación pendientes de revisión visual/manual; no se ha atribuido esa revisión al usuario.
+También especificó estados y prioridades, almacenamiento VARCHAR compatible con MySQL 5.7, responsable textual opcional, metadata JSON nullable y logs con solo fecha de creación. Solicitó transiciones limitadas, actor autenticado, bloqueo previo y auditoría atómica. Los tamaños, índices, contratos y respuestas concretas fueron decisiones de implementación de Codex; no se atribuye al usuario una revisión exhaustiva de cada una.
 
-En el detalle, se solicitaron historial, comentarios, acciones autorizadas por el servidor, confirmación de bloqueo/resolución y fechas españolas con distinción UTC/local. Se justificaron antes de implementar la prop de transiciones y la redirección al detalle; estos ajustes y el diseño concreto quedan pendientes de revisión manual del usuario.
+El usuario confirmó la instalación limpia desde un clon independiente en el mismo Mac, usando `prueba_optimaretail_check`, con migraciones, seeder, build, login y creación correctos. Confirmó además las comprobaciones manuales de interfaz y responsive. Estas confirmaciones no se presentan como acciones ejecutadas por el navegador del agente, que había fallado al inicializarse, ni como pruebas de todos los dispositivos o de concurrencia real.
 
-Para diagnóstico, el usuario pidió tres casos separados, generación explícita repetible y detección sin escrituras ni reparaciones. Identificadores de fixtures, criterios concretos de incoherencia, códigos de salida y estrategia de lotes son decisiones de implementación pendientes de revisión manual; sus limitaciones constan en el README.
+Para la seguridad del toolchain autorizó conservar las versiones funcionales y fijar Tinypool bajo Oxfmt mediante un override acotado. La compatibilidad se verificó primero en aislamiento y después en el proyecto original. El CI aprobado corresponde a `61120b7`; no acredita los cambios posteriores todavía no publicados.
 
-En la fase de reparación, el usuario autorizó explícitamente no automatizar cuando faltase evidencia y pidió un procedimiento posterior a una decisión documentada. Codex clasificó los tres casos como ambiguos y lo explicó antes de implementar; no se atribuye al usuario haber confirmado una fuente autoritativa o una corrección concreta. Evaluación y procedimiento están pendientes de revisión manual.
+## Errores detectados y correcciones
 
-Para los ajustes finales, el usuario confirmó que la distribución y elementos actuales ya estaban comprobados manualmente y pidió conservarlos. Se han aplicado identidad, foco, enlaces y simplificación de fechas sin alterar negocio ni diseño; esa confirmación previa no se presenta como validación manual de los cambios nuevos.
+Se distinguen defectos heredados del starter kit de errores o estimaciones del trabajo asistido:
 
-## Errores detectados en el código asistido por IA y correcciones realizadas
+- **Wayfinder:** la redirección heredada de ajustes aceptaba QUERY, incompatible con los métodos generados. Se limitó a GET/HEAD y se regeneraron las rutas, sin editar archivos generados ni ampliar tipos para ocultar el problema.
+- **UserFactory:** `withTwoFactor()` estaba vacío pese a declarar retorno y seguir referenciado. Se implementó un estado real con credenciales cifradas, sin activar 2FA ni eliminar el test.
+- **PDO:** PHPStan detectó que el código generado no comprobaba el posible retorno `false` de `PDO::query()`. Se añadió la comprobación antes de `fetchColumn()`.
+- **Pruebas y consultas:** se corrigieron sintaxis, precisión temporal, cabeceras Inertia, búsqueda literal y consumo prematuro del flash, conservando las aserciones relevantes.
+- **Dependencias:** actualizar solo Vite Plus no bastó: su alias permitió compilar, pero produjo ERESOLVE en instalación limpia. La alternativa autorizada mantiene el toolchain y corrige Tinypool; pasó instalación, audits y verificaciones frontend. No se declaró compatible únicamente por ser una versión patch.
 
-Se distinguen los defectos heredados del starter kit de los errores introducidos durante el trabajo asistido:
+## Referencias al historial
 
-- **PDO:** PHPStan detectó que el código generado usaba el resultado de `PDO::query()` sin comprobar su posible valor `false`. Se añadió la comprobación antes de llamar a `fetchColumn()`.
-- **Wayfinder:** la ruta heredada de redirección aceptaba QUERY, ausente del tipo de métodos generado. Se corrigió la definición de la ruta para navegación GET/HEAD y se regeneró Wayfinder, sin editar archivos generados ni ampliar tipos para ocultar el fallo.
-- **UserFactory:** el método heredado `withTwoFactor()` estaba vacío pese a declarar un retorno y seguía referenciado. Se implementó un estado con credenciales cifradas y confirmación, sin habilitar 2FA ni eliminar el test que lo utilizaba.
-- **Tests del modelo de datos:** se corrigieron un cierre sobrante y comparaciones con microsegundos frente a timestamps de segundos, ajustando el reloj de prueba con `freezeSecond()`.
-- **Transiciones:** se corrigió la consulta para obtener un único modelo sin ambigüedad de tipos y se tomaron los snapshots de pruebas desde MySQL para comparar atributos con el mismo orden, sin ocultar errores del análisis ni debilitar las aserciones.
-- **Creación/listado:** se corrigieron las cabeceras de versión de assets de los tests Inertia y la búsqueda literal de caracteres especiales en MySQL 5.7, sin desactivar middleware ni debilitar comprobaciones. Detalles y resultados en el registro de desarrollo.
-- **Integración del detalle:** el test nuevo consumía los datos temporales al consultar el flash antes de seguir la redirección. Se corrigió la prueba para verificar flash y errores en la respuesta final, conservando sus aserciones y sin cambiar el comportamiento de sesión de la aplicación.
-
-## Referencias a los registros detallados
-
-- [Registro de prompts](prompts.md): peticiones cronológicas de programación, correcciones, refactorizaciones y arquitectura, con decisiones y revisiones pendientes.
-- [Registro de desarrollo](../docs/development.md): configuración, verificaciones, resultados operativos, errores encontrados y limitaciones de cada fase, incluida la revisión visual, la instalación limpia y la ejecución remota de CI pendientes.
-- [README](../README.md): instalación, estado funcional, decisiones del modelo de datos y comandos disponibles.
-- [Alcance de la prueba](technical-assessment-scope.md): requisitos y decisiones del proyecto, diferenciados de la implementación.
+- [Prompts](prompts.md): programación, correcciones y arquitectura; se conservan íntegramente sus entradas.
+- [Desarrollo](../docs/development.md): configuración, resultados, confirmaciones humanas, alternativas fallidas y limitaciones. La corrección de Tinypool se registra allí, no como programación.
+- [README](../README.md): instalación, ejecución, diagnóstico y estado de verificación.
+- [Alcance](technical-assessment-scope.md): requisitos y decisiones diferenciados de la implementación; el [PDF original](../docs/prueba_tecnica_mid_senior.pdf) sigue siendo la referencia principal.
