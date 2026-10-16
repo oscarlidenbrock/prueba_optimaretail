@@ -1,378 +1,89 @@
-# Project agent instructions
-
-These instructions apply to this repository. Follow explicit user requests and implement only the current agreed task. The project-specific rules below refine the Laravel Boost guidance where they differ. Preserve this project-specific section if regenerating Boost guidance.
-
-## Purpose and scope
-
-Build **Panel operativo de incidencias**, a small application for a mid/senior technical assessment. Use `ai-process/technical-assessment-scope.md` as the operational reference for requirements throughout development. The original source is `docs/prueba_tecnica_mid_senior.pdf`.
-
-- Required stack: Laravel, PHP, MySQL, Inertia + React, HTML, CSS, JavaScript/TypeScript, and Tailwind CSS.
-- Do not use Next.js or replace MySQL with SQLite for application runtime.
-- Favor a complete, coherent solution within the assessment's approximately 90-minute scope.
-- Authentication, teams, advanced permissions, notifications, Docker, public deployment, and external integrations are not required. Do not add them unless requested.
-- Inspect existing starter-kit routes and tests before adapting them. Do not silently remove unrelated functionality or failing tests.
-- Work incrementally. Do not implement all remaining requirements when the user requests one step.
-
-## Technical assessment scope
-
-- Read `ai-process/technical-assessment-scope.md` before planning or implementing changes. Reuse the content already read if it has not changed.
-- Treat the assessment requirements as acceptance criteria. Distinguish mandatory requirements from agreed project decisions and optional recommendations; do not turn optional suggestions into mandatory features.
-- Identify the relevant requirements for each task and verify them when the task is complete. Record progress in `docs/development.md` rather than rewriting requirements to match implementation.
-- Keep `docs/prueba_tecnica_mid_senior.pdf` unchanged as the original source. Consult it when requirements are unclear or the Markdown appears incomplete.
-- Keep the operational Markdown in `ai-process/technical-assessment-scope.md` and the original PDF in `docs/prueba_tecnica_mid_senior.pdf`. Do not move both documents into `docs/`; these paths are relative to the repository root.
-- If the Markdown and original PDF conflict, report the discrepancy and resolve the affected requirement before implementing it. Continue independent work when possible.
-- Do not modify the scope unless the user requests a change or correction. If a referenced file is missing, report it and do not invent its contents.
-
-## Language and naming
-
-- Write identifiers in English: variables, functions, methods, classes, enums, components, props, database identifiers, route names, and test names.
-- Write code comments, PHPDoc, and JSDoc in English.
-- Write user-facing UI, validation messages, project documentation, and progress explanations in Spanish unless requested otherwise. Keep this instruction file in English.
-- Write Conventional Commit messages in English.
-- Follow Laravel and existing frontend naming conventions. Use descriptive names and avoid ambiguous abbreviations.
-- Persist English status identifiers and map them to Spanish UI labels consistently; do not scatter translated values through business logic.
-
-## Comments and types
-
-- Explain non-obvious business rules, invariants, constraints, and reasons for decisions.
-- Document important business operations and complex blocks, including side effects or exceptional cases when useful.
-- Do not require a comment on every function or repeat what its name and types already express. Simple methods and components may be self-explanatory.
-- Prefer PHPDoc/JSDoc for contracts that need explanation and short inline comments for local reasoning. Keep comments accurate as behavior changes.
-- Use explicit PHP parameter and return types where compatible with framework contracts. Use PHPDoc for generics and array shapes that native types cannot express.
-- Use TypeScript for new React code. Type props, form values, and server responses; avoid `any`, unjustified casts, and disabling checks to hide errors.
-
-## Architecture
-
-- Apply SOLID pragmatically, KISS, and YAGNI. Separate responsibilities without building unnecessary layers.
-- Use conventional Laravel organization. Do not introduce full DDD, hexagonal architecture, CQRS, generic repositories, or interfaces with a single trivial implementation merely to demonstrate patterns.
-- Keep controllers focused on HTTP orchestration and use Form Requests for meaningful request validation.
-- Keep relationships and appropriate query scopes in Eloquent models.
-- Extract business operations such as `CreateIncident` and `ChangeIncidentStatus` into focused action classes or services when they improve cohesion, reuse, or testability. Do not create both action and service layers for the same trivial operation.
-- Use dependency injection where needed. Avoid duplicated business logic between controllers, commands, and frontend code.
-- Use Laravel routes and Inertia responses; no separate REST API or API versioning is required for this application.
-- Prefer existing dependencies and components. Get approval before adding dependencies or changing major architecture. Ordinary files and subdirectories within existing application areas needed for an authorized task do not require repeated approval.
-
-## Assessment requirements
-
-Implement these incrementally as requested:
-
-- Main screen with application name and description, incident list, priority, status, date, requester or assignee, creation form, status actions, and history access.
-- Responsive, understandable interface with clear indicators for open, under review, blocked, and resolved incidents.
-- Tables `incidents`, `incident_logs`, and `incident_comments`, preserving the fields required by the assessment.
-- Incident creation, filters by status/priority/free text, permitted state changes, history and comments, comment creation, and clear validation feedback.
-- At least two frontend enhancements from the assessment. Prefer quick status filtering without full-page reload and confirmation before blocking or resolving; state counters are optional if time permits.
-- Three deliberately inconsistent sample cases and a documented diagnosis/correction workflow with a dry-run option.
-
-## Database design and compatibility
-
-- Use MySQL as the source of truth for incidents, comments, and audit history. MAMP provides the local database server; do not assume its port or credentials.
-- Confirm the actual server version through the connection, for example with `SELECT VERSION()`, before relying on version-specific SQL, JSON features, collations, or constraint enforcement. `mysql --version` identifies the client, not the server.
-- Record the server version actually verified in the README. Do not claim compatibility with other versions without evidence or silently change the user's server.
-- Use a transactional engine such as InnoDB for related application tables. Preserve foreign key compatibility, including ID types and signedness.
-- Define column types, lengths, defaults, nullability, priority values, and relationship cardinality deliberately. Keep request validation consistent with schema limits.
-- Use `utf8mb4` and a collation supported by the actual server. Do not assume newer default collations are available.
-- Use migrations for schema changes and document any data-migration implications. Do not manually change schema outside migrations or edit applied shared migrations to disguise a schema change.
-- Choose foreign key deletion behavior explicitly. Preserve audit history; do not add incident deletion or cascading history removal unless needed and justified.
-- Use structured metadata with appropriate casts and a database type supported by the verified server. Document the meaning of audit actions and values.
-- Keep timestamps consistent, preferably stored in UTC and formatted for presentation. Use deterministic ordering where timestamps tie.
-- Design indexes from actual filtering, sorting, and relationship queries. Consider composite indexes only when their column order serves those queries; avoid indexing every field or adding overlapping indexes blindly.
-- Paginate list queries, eager-load relationships when needed, and avoid loading full histories for every row in the main list.
-- Keep normal seeders and deliberately inconsistent fixtures separate and reproducible. Ensure diagnostic fixtures represent their intended problems without weakening normal validation or schema integrity.
-- Use a separate test database and verify its connection before tests that reset data. Never run `migrate:fresh`, `db:wipe`, or equivalent against development data without explicit authorization.
-- In this local workspace, do not run migrations, cleanup, or tests against `prueba_optimaretail`, as explicitly requested by the user. Test operations must target `prueba_optimaretail_test`.
-
-## Cache policy
-
-- Application-level caching and Redis are not required by the assessment. Do not add them initially without a demonstrated need and an agreed scope change.
-- Query MySQL directly for incident lists, counters, status validation, and inconsistency diagnosis while the application remains small.
-- Distinguish framework cache infrastructure from caching business data. Inspect the configured cache driver before changing it; keep the existing driver if suitable.
-- If the database cache driver is used, ensure its required migrations and setup steps are present. Do not create duplicate migrations for tables already provided by the starter kit.
-- Do not use cached state to authorize status transitions or decide repairs. Read the current authoritative state within the database transaction and apply the concurrency safeguards below.
-- If query caching is later justified, document cache keys, filter and pagination dimensions, TTL, and invalidation. Invalidate affected data only after a successful commit, including changes made by repair commands.
-- Avoid global cache flushes as a routine fix. Do not introduce a second cache service or infrastructure dependency without approval.
-
-## Data integrity and audit history
-
-- Use migrations, appropriate foreign keys, explicit deletion behavior, and justified indexes for status, priority, and date queries. Avoid redundant indexes.
-- Centralize statuses and priorities, preferably with backed PHP enums. Document the transition matrix and validate transitions on the server.
-- Support the required flow: open -> under review -> blocked or resolved. Document any additional transitions. If reopening is implemented, record an explicit reopening action.
-- Store every status change with previous value, new value, actor, and timestamp. Record other critical actions consistently and document the policy.
-- Without authentication, use an explicit documented demo/operator identity or validated supplied name. Do not present it as verified authentication.
-- Persist an incident change and its audit entry in one database transaction. Roll back both on failure.
-- Protect status changes from concurrent stale writes, for example by reloading and locking the incident inside the transaction before checking the transition and writing the log. Record the actual previous state.
-- Avoid silently rewriting or deleting audit history. Document any repair and preserve evidence of the original inconsistency.
-- Define deterministic chronological ordering for logs, using an ID tie-breaker when timestamps match. Distinguish status-changing logs from comments or unrelated actions.
-- Use bound SQL parameters or Eloquent. Validate input, retain CSRF protection, and avoid unsafe HTML rendering and unrestricted mass assignment.
-- Paginate incident lists and avoid N+1 queries where relationships are displayed.
-
-## Diagnosis and repair
-
-- Separate normal demo seed data from deliberately inconsistent fixtures so both can be loaded intentionally and reproduced.
-- Include: resolved incident without a resolution log; incident whose state disagrees with its latest status-changing log; duplicate or incoherent log.
-- Provide a clearly documented diagnostic entry point, preferably an Artisan command, with a no-write dry-run option.
-- Report affected IDs, detected problems, proposed actions, and cases requiring manual review.
-- Do not infer that the current status or latest log must always be authoritative. State the evidence and repair policy.
-- Do not invent historical actors or timestamps. If creating a corrective log, identify it as a repair performed now, with available provenance and limitations.
-- Make corrections transactional and safe to repeat: a second run must not create duplicate repairs or unnecessary changes. Recheck the relevant data before applying a correction.
-- Document the detection queries, why they detect each problem, and what cannot safely be corrected automatically.
-
-## Frontend behavior
-
-- Keep React components focused, with typed props and clear ownership of state.
-- Use existing Inertia form/navigation patterns and Wayfinder. Keep filters in URL parameters where practical for reloads and shareable state.
-- Do not duplicate the authoritative transition rules in multiple places; expose allowed actions from the backend when appropriate and always enforce them server-side.
-- Provide accessible labels, keyboard-operable actions, visible validation errors, empty states, and loading/disabled states that prevent accidental duplicate submission.
-- Do not communicate status with color alone. Check desktop and mobile layouts.
-- Reuse existing UI components and Tailwind conventions. Do not add a second CSS framework.
-- Do not hand-edit generated Wayfinder route/action files, build assets, `vendor/`, or `node_modules/`.
-
-## Tests and verification
-
-- Detect and retain the installed test framework; do not assume Pest or PHPUnit from this file alone.
-- Add or update meaningful tests as functionality is implemented. Prefer feature tests for requests, database behavior, and Inertia responses; use unit tests for isolated business rules when useful.
-- Cover success and relevant failures: invalid input, filtering, allowed and forbidden transitions, explicit reopening if supported, correct audit data, transaction rollback, comments, and diagnostic behavior.
-- For repair operations, test dry-run does not write, ambiguity is reported, corrections are accurate, and repeated execution is idempotent.
-- Use factories and deterministic fixtures. Isolate tests from development data and verify the test database configuration before running migrations or database-resetting tests.
-- Use the dedicated MySQL database `prueba_optimaretail_test` for database-dependent tests. Keep test connection settings and credentials only in the Git-ignored `.env.testing`; do not override them in `phpunit.xml`. Verify the effective database before `RefreshDatabase` can run. SQLite-only results do not establish MySQL compatibility, locking, or constraint behavior.
-- Test frontend interactions with the existing test setup where available. Do not install a new testing stack without approval. Otherwise record focused manual checks honestly.
-- Styling-only or documentation-only changes do not require new behavioral tests.
-- Run the narrowest affected tests while developing; run the full suite before delivery or after changes to shared behavior.
-- Inspect available scripts before running lint, formatting, type checking, and builds. Run relevant checks for changed code, including a frontend build after frontend integration changes.
-- Never claim tests, manual review, or build steps passed if they were not executed. Report blockers and remaining checks.
-
-## Documentation and AI process
-
-The user authorizes creating and updating these documents as part of development:
-
-- `README.md`: accurate requirements, installation, environment setup, migrations/seeders, startup, tests, diagnosis commands, and key decisions.
-- `docs/prueba_tecnica_mid_senior.pdf`: original assessment; keep it unchanged.
-- `docs/development.md`: implementation progress, technical decisions, issues, and verification.
-- `ai-process/technical-assessment-scope.md`: assessment requirements and clearly separated project decisions; follow the scope rules above.
-- `/ai-process/ai-process.md`: AI tools, prompt summary, AI-assisted parts, confirmed manual decisions, and actual errors/corrections.
-- `/ai-process/prompts.md`: chronological record limited to programming changes and architectural decisions.
-
-Keep `/ai-process` at repository root as required by the assessment. Reuse the exact documentation paths above; do not create a duplicate AI overview or development journal.
-
-Append an entry to `ai-process/prompts.md` only when a task implements or changes application code, fixes a programming defect, refactors code, or introduces or changes an architectural decision. For each qualifying task, include:
-
-1. Date and task title.
-2. The actual prompt or a clearly labeled faithful summary.
-3. Programming changes made and architectural decisions, with their relevant reasons.
-4. Manual design decisions or corrections confirmed by the user, or explicitly pending review.
-
-- Do not add entries for commit or other Git requests, configuration or environment changes, dependency setup, requested checks or verification runs, read-only reviews, documentation changes, or edits to agent instructions. This logging-policy change does not require a prompt entry.
-- For mixed tasks, record only the programming or architecture work. Do not include commit logs or hashes, configuration steps, command transcripts, or check results in `ai-process/prompts.md`. Keep relevant operational details and verification results in `docs/development.md` instead.
-- Log significant follow-up corrections only when they change programming or architecture. Do not recursively log the act of maintaining documentation.
-- Do not invent prompts, programming changes, architectural decisions, manual reviews, or corrections.
-- Exclude secrets and personal data from prompts and documentation. Redact sensitive values rather than copying `.env` contents.
-- Keep documentation concise, distinguish implemented from planned behavior, and update commands when implementation changes.
-
-## Git and completion
-
-- Use Conventional Commits in English: `feat`, `fix`, `test`, `refactor`, `docs`, `chore`, or `style`, with an optional meaningful scope.
-- Keep changes and proposed commits focused on one coherent purpose.
-- Create commits only when requested. Do not amend, push, force-push, or rewrite history without explicit authorization for that action.
-- Inspect staged changes before committing. Preserve unrelated user changes and do not stage them automatically.
-- Never commit credentials, `.env`, dependency directories, generated assets, or local IDE configuration. Keep `.env.example`, `composer.lock`, and `package-lock.json` tracked.
-- Do not execute destructive database resets against development data without explicit authorization. Isolated test database resets are permitted after verifying the target.
-- Finish each task with a short summary of changes, checks and results, and unresolved limitations. Provide a suggested commit message when requested.
-
-## Tool availability
-
-Use Boost tools and relevant project skills when available. If a referenced tool, skill, rule file, or script is unavailable, report the limitation when relevant and use installed CLI tools, repository source, or official version-matched documentation. Do not invent tool results or stop routine authorized work solely because an optional integration is missing.
-
-<laravel-boost-guidelines>
-=== foundation rules ===
-
-# Laravel Boost Guidelines
-
-## Foundational Context
-
-This application is a Laravel application running on PHP 8.5. Always use the APIs that match the installed major version of each package — do not assume a version.
-
-Before relying on a package's API, confirm its installed version:
-- PHP packages: run `composer show --direct` to list direct dependencies with versions, or `composer show <vendor/package>` for a single package.
-- JS packages: use `npm list --depth=0` (or inspect `package-lock.json`) for resolved versions. `package.json` may contain version ranges.
-
-## Skills Activation
-
-This project has domain-specific skills available in `**/skills/**`. You MUST activate the relevant skill whenever you work in that domain—don't wait until you're stuck.
-
-## Conventions
-
-- You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, and naming.
-- Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
-- Check for existing components to reuse before writing a new one.
-
-## Verification Scripts
-
-- Do not create verification scripts or tinker when tests cover that functionality and prove they work. Unit and feature tests are more important.
-
-## Application Structure & Architecture
-
-- Stick to existing directory structure; don't create new base folders without approval.
-- Do not change the application's dependencies without approval.
-
-## Frontend Bundling
-
-- If a frontend change doesn't show in the UI or you get a "Unable to locate file in Vite manifest" error, run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
-
-## Documentation Files
-
-- Maintain `README.md`, `docs/`, and `ai-process/` as part of implementation tasks, as authorized by the project-specific rules above. Avoid unrelated documentation.
-
-=== boost rules ===
-
-# Laravel Boost
-
-## Tools
-
-- Laravel Boost is an MCP server with tools designed specifically for this application. Prefer Boost tools over manual alternatives like shell commands or file reads.
-- Use `database-query` to run read-only queries against the database instead of writing raw SQL in tinker.
-- Use `database-schema` to inspect table structure before writing migrations or models.
-- Use `get-absolute-url` to resolve the correct scheme, domain, and port for project URLs. Always use this before sharing a URL with the user.
-- Use `browser-logs` to read browser logs, errors, and exceptions. Only recent logs are useful, ignore old entries.
-
-## Searching Documentation (IMPORTANT)
-
-- Use `search-docs` before changes that depend on Laravel ecosystem APIs, behavior, configuration, or version-specific syntax. Skip it for copy-only edits and other changes where package documentation is irrelevant. Reuse sufficient results already in context instead of searching again.
-- Pass a `packages` array to scope results when you know which packages are relevant.
-- Use multiple broad, topic-based queries: `['rate limiting', 'routing rate limiting', 'routing']`. Expect the most relevant results first.
-- Do not add package names to queries because package info is already shared. Use `test resource table`, not `filament 4 test resource table`.
-
-### Search Syntax
-
-1. Use words for auto-stemmed AND logic: `rate limit` matches both "rate" AND "limit".
-2. Use `"quoted phrases"` for exact position matching: `"infinite scroll"` requires adjacent words in order.
-3. Combine words and phrases for mixed queries: `middleware "rate limit"`.
-4. Use multiple queries for OR logic: `queries=["authentication", "middleware"]`.
-
-## Project Rules
-
-- This project contains committed, area-grouped rules in `.ai/rules` when that directory exists, including path-scoped framework guidelines under `.ai/rules/boost`. Before you enter plan mode or create/edit any file, you MUST first: open @.ai/rules/index.md (it maps file globs to rule files), read every rule file whose globs cover the path(s) in scope, and run `rg -n -i '<relevant-topic>' .ai/rules` to catch what a path match alone misses. Do not write code until you have read and are following every matching rule. If `.ai/rules` does not exist, continue without it.
-
-## Artisan
-
-- Run Artisan commands directly via the command line (e.g., `php artisan route:list`). Use `php artisan list` to discover available commands and `php artisan [command] --help` to check parameters.
-- Inspect routes with `php artisan route:list`. Filter with: `--method=GET`, `--name=users`, `--path=api`, `--except-vendor`, `--only-vendor`.
-- Read configuration values using dot notation: `php artisan config:show app.name`, `php artisan config:show database.default`. Or read config files directly from the `config/` directory.
-
-## Tinker
-
-- Execute PHP in app context for debugging and testing code. Do not create models without user approval, prefer tests with factories instead. Prefer existing Artisan commands over custom tinker code.
-- Always use single quotes to prevent shell expansion: `php artisan tinker --execute 'Your::code();'`
-  - Double quotes for PHP strings inside: `php artisan tinker --execute 'User::where("active", true)->count();'`
-
-=== php rules ===
-
-# PHP
-
-- Always use curly braces for control structures, even for single-line bodies.
-- Use PHP 8 constructor property promotion: `public function __construct(public GitHub $github) { }`. Do not leave empty zero-parameter `__construct()` methods unless the constructor is private.
-- Use explicit return type declarations and type hints for all method parameters: `function isAccessible(User $user, ?string $path = null): bool`
-- Use TitleCase for Enum keys: `FavoritePerson`, `BestLake`, `Monthly`.
-- Prefer PHPDoc blocks over inline comments. Only add inline comments for exceptionally complex logic.
-- Use array shape type definitions in PHPDoc blocks.
-
-=== deployments rules ===
-
-# Deployment
-
-- Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
-- Activate the `deploying-to-cloud` skill whenever deploying to Laravel Cloud, configuring Cloud environments or resources, using the Cloud CLI, or troubleshooting Cloud deployments.
-
-=== tests rules ===
-
-# Test Enforcement
-
-- Add or update tests for behavior and logic changes when a test provides meaningful regression coverage.
-- Pure copy, styling, and layout-only changes do not require new or updated tests.
-- When test coverage applies, run the affected tests and ensure they pass.
-- Test the changed behavior and its important failure modes, but do not add tests beyond them.
-- Read the `testing-best-practices` skill before writing tests.
-
-=== inertia-laravel/core rules ===
-
-# Inertia
-
-- Inertia creates fully client-side rendered SPAs without modern SPA complexity, leveraging existing server-side patterns.
-- Components live in `resources/js/pages` (unless specified in `vite.config.js`). Use `Inertia::render()` for server-side routing instead of Blade views.
-- ALWAYS use `search-docs` tool for version-specific Inertia documentation and updated code examples.
-- IMPORTANT: Activate `inertia-react-development` when working with Inertia client-side patterns.
-
-# Inertia v3
-
-- Use only the Inertia features needed for the task. Check documentation for the installed version; do not assume legacy APIs remain compatible.
-- New v3 features: standalone HTTP requests (`useHttp` hook), optimistic updates with automatic rollback, layout props (`useLayoutProps` hook), instant visits, simplified SSR via `@inertiajs/vite` plugin, custom exception handling for error pages.
-- Carried over from v2: deferred props, infinite scroll, merging props, polling, prefetching, once props, flash data.
-- When using deferred props, add an empty state with a pulsing or animated skeleton.
-- Axios has been removed. Use the built-in XHR client with interceptors, or install Axios separately if needed.
-- `Inertia::lazy()` / `LazyProp` has been removed. Use `Inertia::optional()` instead.
-- Prop types (`Inertia::optional()`, `Inertia::defer()`, `Inertia::merge()`) work inside nested arrays with dot-notation paths.
-- SSR works automatically in Vite dev mode with `@inertiajs/vite` - no separate Node.js server needed during development.
-- Event renames: `invalid` is now `httpException`, `exception` is now `networkError`.
-- `router.cancel()` replaced by `router.cancelAll()`.
-- The `future` configuration namespace has been removed - all v2 future options are now always enabled.
-
-=== laravel/core rules ===
-
-# Do Things the Laravel Way
-
-- Use `php artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using `php artisan list` and check their parameters with `php artisan [command] --help`.
-- If you're creating a generic PHP class, use `php artisan make:class`.
-- Pass `--no-interaction` to all Artisan commands to ensure they work without user input. You should also pass the correct `--options` to ensure correct behavior.
-
-### Model Creation
-
-- When creating new models, create useful factories and seeders within the requested scope. Use `php artisan make:model --help` to check available options; do not interrupt routine work to offer unrelated additions.
-
-## APIs & Eloquent Resources
-
-- For APIs, default to using Eloquent API Resources and API versioning unless existing API routes do not, then you should follow existing application convention.
-
-## URL Generation
-
-- When generating links to other pages, prefer named routes and the `route()` function.
-
-## Testing
-
-- When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
-- Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
-- When creating tests, make use of `php artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
-
-=== wayfinder/core rules ===
-
-# Laravel Wayfinder
-
-Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `@/actions/` (controllers) or `@/routes/` (named routes).
-
-=== pint/core rules ===
-
-# Laravel Pint Code Formatter
-
-- If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
-- Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
-
-=== pest/core rules ===
-
-# Pest
-
-- Confirm the configured test framework from `composer.json`, installed packages, and existing tests. Keep Pest if configured; otherwise keep PHPUnit. Do not switch frameworks. With Pest use `php artisan make:test --pest {name}`; with PHPUnit use the supported PHPUnit generator option after checking command help.
-- Do not include the test suite directory in `{name}`. Use `SomeFeatureTest`, not `Feature/SomeFeatureTest`.
-- Read the `testing-best-practices` skill for guidance on coverage, naming, structure, dependency isolation, and review.
-- Do not delete tests or test files without approval. They are part of the application.
-
-## Running Tests
-
-- Run the narrowest set of tests that covers the change. Pass a file path or `--filter=testName` to `php artisan test --compact`.
-- Rerun a test after each change to it.
-- If Pest is installed and configured, `vendor/bin/pest` may be used directly. Otherwise use the configured PHPUnit runner or `php artisan test`.
-- Run the complete suite before final delivery or when shared behavior is affected, if the environment is available. Report results accurately; ask the user to run a command only when you cannot execute it.
-
-=== inertia-react/core rules ===
-
-# Inertia + React
-
-- IMPORTANT: Activate `inertia-react-development` when working with Inertia React client-side patterns.
-
-</laravel-boost-guidelines>
+# Project instructions
+
+## Scope and references
+
+- Build **Panel operativo de incidencias** with Laravel, PHP, MySQL, Inertia + React, TypeScript, and Tailwind. No Next.js.
+- Implement only the requested step. Prioritize a small, complete solution within the assessment's approximately 90-minute scope; do not add authentication, teams, advanced permissions, notifications, Docker, deployment, or integrations unless requested.
+- Read `ai-process/technical-assessment-scope.md` at the start of development and consult relevant sections for each task. Distinguish assessment requirements from project decisions and optional recommendations. Verify completed work against the applicable acceptance criteria.
+- Reuse references already read when unchanged. Consult the original `docs/prueba_tecnica_mid_senior.pdf` for ambiguity or suspected omissions. Report discrepancies and resolve the affected requirement; continue independent work where possible.
+- Keep these paths unchanged. Do not rewrite the scope to match implementation or change it without a requested correction.
+
+## Conventions and architecture
+
+- Use English for identifiers, database names, route names, tests, code comments, PHPDoc/JSDoc, and Conventional Commits. Use Spanish for UI, validation messages, documentation, and explanations; keep this file in English.
+- Follow existing Laravel/frontend conventions and reuse components. Inspect relevant sibling files before adding a new pattern.
+- Apply SOLID pragmatically, KISS, and YAGNI. Use conventional Laravel structure, focused controllers, Form Requests, Eloquent relationships/scopes, and focused actions/services where useful. Avoid duplicate layers, generic repositories, unnecessary interfaces, full DDD, CQRS, or a separate API.
+- Ordinary files/subdirectories needed within existing application areas are authorized. Ask before introducing dependencies, new top-level architecture, or unrelated features.
+- Use explicit PHP parameter/return types, braces for control flow, and constructor property promotion where appropriate. Use TitleCase enum cases and PHPDoc for generics/array shapes.
+- Type React props, forms, and server data. Do not use `any`, unjustified casts, disabled checks, or blanket suppressions to hide defects.
+- Explain non-obvious rules, constraints, and important side effects in English. Do not comment every function or repeat obvious names/types. Keep comments accurate.
+
+## Database and audit integrity
+
+- MySQL is the source of truth. Target the local MySQL 5.7 setup; confirm the actual server version through the connection before relying on version-specific behavior. Do not infer the server version from the client or change the server silently.
+- Use local connection settings from `.env`; describe generic MySQL setup in documentation without naming local server-management software. Never print or log credentials.
+- Use migrations, InnoDB, compatible foreign key types, `utf8mb4`, and a collation supported by the verified server. Define lengths, nullability, defaults, metadata types/casts, priorities, and deletion policies deliberately; align validation with schema constraints.
+- Do not rely on newer SQL features or unenforced constraints. Keep applied/shared migrations intact; add migrations for subsequent schema changes.
+- Justify indexes from actual status, priority, date, and relationship queries. Paginate lists, avoid N+1 queries and redundant indexes, and do not load every incident's full history in list views.
+- Centralize English status/priority values, preferably with backed enums; map UI labels to Spanish. Define the transition matrix and validate it server-side. Minimum flow: open -> under review -> blocked or resolved. Any implemented reopening requires an explicit reopening log.
+- Persist each critical incident change and its audit entry in one transaction. For concurrent status changes, reload/lock the row inside the transaction, validate the current transition, and record the actual previous state. Roll back both writes on failure.
+- Record previous/new values, actor, action, and timestamp. Without authentication, document the supplied/demo actor without implying verified identity. Keep timestamps consistent, preferably UTC, and order logs deterministically with an ID tie-breaker.
+- Distinguish state-changing logs from unrelated actions. Preserve audit evidence; do not silently delete/rewrite history or add cascading history removal without justification.
+- Use bound queries/Eloquent, explicit mass-assignment rules, backend validation, and CSRF protection. Avoid unsafe HTML rendering.
+- Normal pending migrations with `php artisan migrate` are permitted in development after verifying the connection and reviewing their effects. Do not run data cleanup, tests, or destructive resets (`migrate:fresh`, `migrate:refresh`, `db:wipe`, or equivalents) against `prueba_optimaretail`. Destructive development operations require explicit authorization.
+
+## Diagnosis and cache
+
+- Keep reproducible normal seed data separate from the three required inconsistent cases: resolved without resolution log, state differing from latest state-changing log, and duplicate/incoherent log.
+- Provide a documented diagnosis entry point, preferably Artisan, with a no-write dry-run. Report affected IDs, evidence, proposed fixes, and cases needing manual review; explain the detection queries.
+- Do not assume current status or latest log is always authoritative or invent historical actors/timestamps. Identify corrective entries as repairs made now, preserving provenance and limitations.
+- Recheck data before repair, use transactions, and make repairs safe to repeat without duplicate corrective entries. Leave ambiguous cases for documented manual review.
+- Do not introduce Redis or business-data caching initially. Query MySQL directly for lists, counters, transitions, and diagnosis. Keep the existing framework cache driver if suitable and ensure any required database cache tables/migrations exist without duplicating them.
+- If business caching is later justified and agreed, document keys, filter/pagination dimensions, TTL, and invalidation after commit, including repair commands. Never use cached state to decide transitions/repairs or routinely flush all caches.
+
+## Frontend and framework tools
+
+- Use Laravel routes and `Inertia::render()` with focused, typed React components in the existing pages directory. Use existing Inertia forms/navigation and Wayfinder imports from `@/actions` or `@/routes`.
+- Keep state ownership clear, preserve filters in URL parameters where practical, and enforce transitions on the backend. Reuse server-provided allowed actions rather than duplicating business rules.
+- Provide accessible labels, keyboard access, mobile/desktop layouts, visible validation, empty/loading states, and protection against duplicate submission. Status must not rely on color alone. Implement at least two assessment interactions; prefer quick status filtering and confirmation before blocking/resolving.
+- Never hand-edit generated Wayfinder files, build assets, `vendor/`, or `node_modules/`. Fix source configuration and regenerate through project tooling.
+- Confirm relevant package versions from `composer show`, `npm list`, or lockfiles; `package.json` ranges are not resolved versions. Recheck only when dependencies change or the needed API is uncertain.
+- Prefer available Boost tools for schema, read-only queries, URLs, recent browser logs, and version-matched documentation. Consult `search-docs` for unfamiliar/version-sensitive Laravel or Inertia behavior, reusing sufficient prior results.
+- Read applicable `.ai/rules/index.md` rules and relevant project skills (such as `testing-best-practices` or `inertia-react-development`) when present; reuse unchanged guidance. If unavailable, use installed CLI tools, repository code, or official documentation without inventing results.
+- Prefer Artisan generators with `--no-interaction` and correct options. Check help when syntax is uncertain. Prefer existing commands/tests over ad hoc scripts; quote Tinker code safely if needed.
+
+## Tests and completion checks
+
+- Retain the configured Pest/PHPUnit framework. Use factories and deterministic fixtures; prefer feature tests for HTTP, Inertia, and persistence, and unit tests for isolated rules.
+- Add meaningful regression tests with each behavior change: success, validation failures, filters, valid/invalid transitions, reopening if supported, audit data, rollback, comments, and diagnosis. Repairs need dry-run, ambiguity, correction, and repeat-run coverage.
+- Database tests must use MySQL `prueba_optimaretail_test`. Keep connection settings only in Git-ignored `.env.testing`, without database overrides in `phpunit.xml`. Verify the effective target before database-resetting test hooks run; fail safely if it is not the test database.
+- Isolated test resets are permitted after checking the target. SQLite-only results do not prove MySQL constraint or locking behavior.
+- Use existing frontend testing tools for changed interactions where available; otherwise record focused manual checks. Do not install a testing stack or delete tests to obtain a pass without approval.
+- Run affected tests during development. Run the full suite before delivery or when shared behavior changes; do not repeat unchanged passing checks without a concrete reason.
+- Use existing scripts for relevant lint, formatting, PHPStan, TypeScript, and build checks. Format changed PHP with the installed Pint configuration; preserve the existing `--dirty --format agent` workflow when supported. Build after frontend integration changes. Format modified Markdown with the configured formatter.
+- Documentation/style-only edits do not need new behavior tests. Never claim a check passed if not run; report failures, environment blockers, and pending manual review.
+
+## Documentation and prompt log
+
+Maintain the following as needed; updates within these paths are authorized:
+
+- `README.md`: accurate generic installation, requirements, environment setup, migration/seed, startup, test/diagnosis commands, and key decisions.
+- `docs/development.md`: concise implementation progress, technical decisions, operational details, and verification results.
+- `ai-process/ai-process.md`: AI tools/contributions, confirmed manual decisions, and actual errors/corrections.
+- `ai-process/prompts.md`: chronological programming/architecture requests and outcomes only.
+- `ai-process/technical-assessment-scope.md` and `docs/prueba_tecnica_mid_senior.pdf`: scope reference and original source, protected as described above.
+
+- Append one concise prompt entry when implementing/refactoring code, fixing a programming defect, or making an architectural decision. Include date/title, actual prompt or labeled faithful summary, changes/reasons, and user-confirmed manual decisions or pending review.
+- Exclude Git requests, setup/environment/configuration changes, check runs, read-only reviews, documentation/agent edits, command transcripts, check results, and commit hashes. For mixed tasks log only programming/architecture; put relevant verification in `docs/development.md`.
+- Append without rewriting history. Read only the tail needed to avoid duplicates; do not reload the entire growing prompt log for every task. Do not recursively log documentation maintenance.
+- Never invent prompts, contributions, manual reviews, results, or errors. Redact secrets/personal data. Report logging failures. Keep implemented and planned behavior distinct; avoid duplicate journals.
+
+## Git and efficient workflow
+
+- Use focused Conventional Commits in English (`feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `style`, optional scope). Commit only when requested; amend/push/history changes need explicit authorization. Inspect staging and preserve unrelated user changes.
+- Keep `.env`, `.env.testing`, credentials, local IDE settings, dependencies, and generated assets out of Git; track safe `.env.example`, `composer.lock`, and `package-lock.json`.
+- Search with `rg` and inspect only relevant files/ranges. Reuse unchanged versions, documentation, decisions, and check results already in context. Avoid repeatedly auditing the entire repository for a scoped change.
+- Start with the smallest coherent implementation and its meaningful tests. Batch independent reads/checks when safe; keep dependent edits sequential. Investigate a failed check before rerunning it, and expand investigation only to resolve a specific risk.
+- Keep tool output and replies concise: report changes, checks/results, and unresolved issues; do not paste full files, logs, diffs, or repeated plans unless requested or needed to explain a failure.
+- Do not prescribe weaker correctness or skip required validation to save tokens. These rules guide workflow; they do not override the model/reasoning level selected by the user.
+- Ask only when ambiguity materially affects scope, data, or architecture. Continue routine authorized work without repeated confirmation.

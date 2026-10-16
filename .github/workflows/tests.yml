@@ -12,6 +12,25 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
+
+    services:
+      mysql:
+        image: mysql:5.7.44
+        # Disposable credentials for this CI service only; never use local credentials.
+        env:
+          MYSQL_DATABASE: prueba_optimaretail_test
+          MYSQL_USER: ci_runner
+          MYSQL_PASSWORD: ci_only_password
+          MYSQL_ROOT_PASSWORD: ci_root_only_password
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
 
     steps:
       - name: Checkout code
@@ -25,14 +44,79 @@ jobs:
           php-version: '8.5'
           tools: composer:v2
           coverage: none
+          extensions: pdo_mysql
+          ini-values: memory_limit=512M
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '24'
 
-      - name: Setup Application
-        run: composer setup
+      - name: Prepare CI Test Environment
+        env:
+          CI_DB_PORT: ${{ job.services.mysql.ports[3306] }}
+        run: |
+          php <<'PHP'
+          <?php
+          $environment = file_get_contents('.env.example');
+          $values = [
+              'APP_ENV' => 'testing',
+              'APP_DEBUG' => 'false',
+              'DB_CONNECTION' => 'mysql',
+              'DB_HOST' => '127.0.0.1',
+              'DB_PORT' => getenv('CI_DB_PORT'),
+              'DB_DATABASE' => 'prueba_optimaretail_test',
+              'DB_USERNAME' => 'ci_runner',
+              'DB_PASSWORD' => 'ci_only_password',
+              'SESSION_DRIVER' => 'array',
+              'CACHE_STORE' => 'array',
+              'QUEUE_CONNECTION' => 'sync',
+              'MAIL_MAILER' => 'array',
+          ];
+
+          foreach ($values as $key => $value) {
+              $environment = preg_replace('/^'.$key.'=.*$/m', $key.'='.$value, $environment);
+          }
+
+          $environment .= "\nDB_URL=\nDB_SOCKET=\nDB_CHARSET=utf8mb4\nDB_COLLATION=utf8mb4_unicode_ci\n";
+          file_put_contents('.env.testing', $environment);
+          chmod('.env.testing', 0600);
+          PHP
+
+      - name: Install Dependencies
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress
+          npm ci
+
+      - name: Verify Test Database Before Migrations
+        run: |
+          php artisan key:generate --env=testing --no-interaction
+          php artisan config:clear --no-interaction
+          php <<'PHP'
+          <?php
+          require 'vendor/autoload.php';
+          $app = require 'bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          if ($app->configurationIsCached() || ! $app->environment('testing') || $app->environmentFile() !== '.env.testing') {
+              throw new RuntimeException('CI requires uncached configuration from .env.testing.');
+          }
+
+          $connection = $app->make('db')->connection();
+          if ($connection->getDriverName() !== 'mysql' || $connection->getDatabaseName() !== 'prueba_optimaretail_test') {
+              throw new RuntimeException('CI requires the dedicated MySQL test database.');
+          }
+
+          $server = $connection->selectOne('SELECT DATABASE() AS database_name, VERSION() AS server_version, @@default_storage_engine AS storage_engine');
+          if ($server->database_name !== 'prueba_optimaretail_test' || ! str_starts_with($server->server_version, '5.7.') || $server->storage_engine !== 'InnoDB') {
+              throw new RuntimeException('Unexpected CI database, MySQL version or storage engine.');
+          }
+
+          $connection->statement('ALTER DATABASE `prueba_optimaretail_test` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+          echo json_encode($server, JSON_THROW_ON_ERROR).PHP_EOL;
+          PHP
+
+      - name: Build Frontend
+        run: npm run build
 
       - name: Run CI Checks
         run: composer ci:check

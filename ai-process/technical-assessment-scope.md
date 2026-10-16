@@ -47,11 +47,11 @@ La interfaz debe ser fácil de entender, mantener y ampliar. Evitar CSS caótico
 
 Crear las migraciones necesarias para, como mínimo, estas entidades y campos:
 
-| Tabla | Campos mínimos | Propósito |
-| --- | --- | --- |
-| `incidents` | `id`, `title`, `description`, `status`, `priority`, `requester_name`, `assigned_to`, `created_at`, `updated_at` | Incidencias registradas. |
-| `incident_logs` | `id`, `incident_id`, `action`, `old_value`, `new_value`, `user_name`, `metadata`, `created_at` | Trazabilidad de cambios relevantes. |
-| `incident_comments` | `id`, `incident_id`, `author_name`, `body`, `created_at`, `updated_at` | Comentarios operativos de seguimiento. |
+| Tabla               | Campos mínimos                                                                                                  | Propósito                              |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `incidents`         | `id`, `title`, `description`, `status`, `priority`, `requester_name`, `assigned_to`, `created_at`, `updated_at` | Incidencias registradas.               |
+| `incident_logs`     | `id`, `incident_id`, `action`, `old_value`, `new_value`, `user_name`, `metadata`, `created_at`                  | Trazabilidad de cambios relevantes.    |
+| `incident_comments` | `id`, `incident_id`, `author_name`, `body`, `created_at`, `updated_at`                                          | Comentarios operativos de seguimiento. |
 
 Requisitos adicionales:
 
@@ -77,10 +77,10 @@ El enunciado no especifica todos los tipos, longitudes, campos anulables, nivele
 ### Transiciones mínimas
 
 | Estado inicial | Estado de destino |
-| --- | --- |
-| Abierta | En revisión |
-| En revisión | Bloqueada |
-| En revisión | Resuelta |
+| -------------- | ----------------- |
+| Abierta        | En revisión       |
+| En revisión    | Bloqueada         |
+| En revisión    | Resuelta          |
 
 Una incidencia resuelta no debe volver a abierta sin un log explícito de reapertura. El enunciado condiciona la reapertura a ese registro; no exige expresamente un botón de reapertura. Documentar las transiciones adicionales que se implementen.
 
