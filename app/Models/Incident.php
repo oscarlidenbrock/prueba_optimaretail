@@ -7,6 +7,8 @@ use App\Enums\IncidentStatus;
 use Carbon\CarbonInterface;
 use Database\Factories\IncidentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -41,6 +43,31 @@ class Incident extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(IncidentComment::class)->orderBy('created_at')->orderBy('id');
+    }
+
+    /** @param Builder<static> $query */
+    #[Scope]
+    protected function matchingFilters(
+        Builder $query,
+        ?IncidentStatus $status,
+        ?IncidentPriority $priority,
+        string $search,
+    ): void {
+        if ($status !== null) {
+            $query->where('status', $status->value);
+        }
+
+        if ($priority !== null) {
+            $query->where('priority', $priority->value);
+        }
+
+        if ($search !== '') {
+            // Bound substring matching keeps SQL wildcard characters literal on MySQL 5.7.
+            $query->where(function (Builder $query) use ($search) {
+                $query->whereRaw('LOCATE(?, title) > 0', [$search])
+                    ->orWhereRaw('LOCATE(?, description) > 0', [$search]);
+            });
+        }
     }
 
     /** @return array<string, string> */

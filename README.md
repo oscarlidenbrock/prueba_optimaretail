@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos y la acción interna de cambio de estado con auditoría transaccional; las demás operaciones y las pantallas de incidencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend de creación/listado y la acción interna de cambio de estado con auditoría transaccional. La página React de incidencias y las demás operaciones siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -163,7 +163,7 @@ El plugin de fuentes de Laravel Vite intenta generar fuentes de sustitución con
 
 Pendiente de implementación. Todavía no existen el comando o servicio de diagnóstico, sus consultas SQL/Eloquent, la opción `dry-run` ni los tres casos de ejemplo exigidos: resolución sin log, estado distinto del último cambio y log duplicado o incoherente. No hay un comando de diagnóstico ejecutable que pueda documentarse aún.
 
-Al implementar esa tarea se añadirán aquí los comandos reales, las consultas, su justificación, la política de reparación y los casos que requieren revisión manual. Ya existen el modelo de datos y la acción interna de cambio de estado; el diagnóstico todavía no está implementado.
+Al implementar esa tarea se añadirán aquí los comandos reales, las consultas, su justificación, la política de reparación y los casos que requieren revisión manual. Ya existen el modelo de datos, el backend de creación/listado y la acción interna de cambio de estado; el diagnóstico todavía no está implementado.
 
 ## Decisiones técnicas
 
@@ -197,7 +197,26 @@ Los campos son obligatorios salvo los marcados nullable y los timestamps convenc
 - `incidents(status, created_at)` y `incidents(priority, created_at)`: filtro por estado o prioridad con orden por fecha.
 - `incident_logs(incident_id, created_at)` e `incident_comments(incident_id, created_at)`: historial y comentarios de una incidencia en orden temporal. Estos índices también soportan las claves foráneas, sin otro índice redundante en `incident_id`. InnoDB incorpora la clave primaria a los índices secundarios, permitiendo desempatar por `id`.
 
-La selección de índices se revisará al implementar y medir las consultas reales. No se implementan aún CRUD, controladores, seeders ni frontend de incidencias. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP de creación y listado; edición, eliminación, seeders y frontend de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+
+## Backend de creación y listado
+
+| Método y ruta         | Nombre            | Operación                                                         |
+| --------------------- | ----------------- | ----------------------------------------------------------------- |
+| GET/HEAD `/incidents` | `incidents.index` | Listado paginado y filtrado mediante `IncidentController::index`. |
+| POST `/incidents`     | `incidents.store` | Creación mediante `IncidentController::store`.                    |
+
+Son rutas web con sesión y los middleware `auth` y `verified` existentes, sin ampliar la autenticación. Se conserva la protección CSRF de las peticiones de escritura. No se introducen API separada, servicios ni acciones adicionales para estas operaciones.
+
+`StoreIncidentRequest` exige título (hasta 255 caracteres), descripción (hasta 10000), prioridad del enum y solicitante (hasta 120); responsable es opcional y admite hasta 120 caracteres. El límite de descripción permite almacenar incluso 10000 caracteres de cuatro bytes en la columna TEXT. Los mensajes de validación están en español. Se admiten únicamente los campos validados; el controlador establece `status = open`. La presencia de `status` en el payload, incluso vacío o null, se rechaza. La creación redirige a `incidents.index` con el aviso de éxito habitual de Inertia.
+
+La política de auditoría actual registra cambios de estado con `status_changed`; esta fase no añade un log `created` ni endpoints para consultar el historial. Las factories siguen siendo datos exclusivos de pruebas.
+
+`IndexIncidentRequest` valida `status`, `priority`, `q` y `page`. Los filtros vacíos se interpretan como ausencia de filtro; `q` admite hasta 255 caracteres. `page` debe ser un entero entre 1 y 2147483647 para evitar desbordamientos del offset. El scope `matchingFilters()` combina estado y prioridad con una búsqueda parcial en título **o** descripción, agrupada para no omitir restricciones. Se usa `LOCATE` con parámetros enlazados sobre MySQL: `%`, `_` y `!` se buscan literalmente y se conserva la comparación de la collation configurada.
+
+El listado ordena por `created_at DESC, id DESC`, pagina de 15 en 15 y conserva únicamente los filtros validados en los enlaces. La respuesta Inertia incluye `incidents` (paginador) y `filters` (valores activos); no carga logs ni comentarios.
+
+**Límite de esta fase:** la respuesta prepara el contrato Inertia de `incidents/index`, pero ese componente React todavía no existe porque su implementación está fuera del alcance solicitado. La navegación HTML y el renderizado del listado no están disponibles hasta añadirlo; la plantilla actual necesita el asset de la página. Los tests verifican el backend por protocolo Inertia, enviando la versión real de assets y manteniendo los middleware. No se acredita una pantalla funcional ni se desactiva la comprobación de componentes para simularla. Las rutas operativas requieren además aplicar las migraciones pendientes en desarrollo antes de usarse allí.
 
 ## Transiciones de estado
 
@@ -218,6 +237,8 @@ La actualización y el log se guardan juntos. El log contiene `action = status_c
 La acción devuelve una instancia consultada de nuevo; no actualiza la instancia original del llamador ni sus relaciones cargadas. Las peticiones repetidas se rechazan sin duplicar el historial. El bloqueo de fila y la validación dentro de la transacción evitan decidir con un estado obsoleto. Los tests cubren instancias desactualizadas; no se ha realizado una prueba con conexiones concurrentes independientes. No hay todavía rutas ni interfaz para invocar la acción.
 
 ## Verificación y limitaciones
+
+Fase de backend de creación/listado (16 de octubre de 2026): `php artisan test --compact tests/Feature/IncidentControllerTest.php tests/Feature/IncidentModelTest.php`, 66 pruebas aprobadas y 253 aserciones. Verificadas las conexiones efectivas de lectura y escritura como `prueba_optimaretail_test`, MySQL 5.7.44. Pint, PHPStan de los archivos afectados, rutas/middleware, formato documental y enlaces correctos. Se ejecutaron únicamente las comprobaciones afectadas; no se repitieron suite completa, build ni frontend. Los resultados de fases anteriores se mantienen como históricos.
 
 Fase de transiciones (16 de octubre de 2026): 27 pruebas focalizadas y 111 aserciones correctas con `php artisan test --compact tests/Feature/ChangeIncidentStatusTest.php`; suite completa con 76 aprobadas, 3 omitidas por 2FA desactivado y 264 aserciones. Ambas conexiones efectivas se verificaron como MySQL `prueba_optimaretail_test`, servidor 5.7.44, antes de probar. Pint y PHPStan del código cambiado correctos; sin comprobaciones de frontend ni operaciones sobre la base de desarrollo en esta fase.
 
