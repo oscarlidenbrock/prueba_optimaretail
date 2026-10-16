@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos y el backend de creación, listado, detalle con historial, comentarios y cambio de estado con auditoría transaccional. Las páginas React de incidencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend y la pantalla principal React con listado, filtros y creación. La pantalla de detalle, los comentarios y los cambios de estado desde la interfaz siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -197,7 +197,7 @@ Los campos son obligatorios salvo los marcados nullable y los timestamps convenc
 - `incidents(status, created_at)` y `incidents(priority, created_at)`: filtro por estado o prioridad con orden por fecha.
 - `incident_logs(incident_id, created_at)` e `incident_comments(incident_id, created_at)`: historial y comentarios de una incidencia en orden temporal. Estos índices también soportan las claves foráneas, sin otro índice redundante en `incident_id`. InnoDB incorpora la clave primaria a los índices secundarios, permitiendo desempatar por `id`.
 
-La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP de creación, listado, detalle, comentarios y cambio de estado; edición, eliminación, seeders y frontend de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP de creación, listado, detalle, comentarios y cambio de estado y la pantalla principal de listado/creación; edición, eliminación, seeders y el resto de la interfaz de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
 
 ## Backend HTTP de incidencias
 
@@ -229,7 +229,15 @@ POST `incidents.comments.store` recibe `body`: texto obligatorio, no vacío tras
 
 El éxito redirige con 303 a `incidents.show` y flash `toast` de éxito «Comentario añadido correctamente.». Validación: mensajes españoles por campo, JSON 422 o redirección POST 302 con errores de sesión para Inertia. Incidencias inexistentes: 404. Invitados: redirección a login o JSON 401. Se conserva el acceso actual sin añadir roles ni activar verificación de correo.
 
-**Límite de esta fase:** los contratos Inertia de `incidents/index` e `incidents/show` están preparados, pero sus componentes React todavía no existen porque su implementación está fuera del alcance solicitado. La navegación visual HTML, el renderizado de listado/detalle y los formularios siguen pendientes; la plantilla actual necesita el asset de cada página. Los tests verifican el backend por protocolo Inertia, enviando la versión real de assets y manteniendo los middleware. No se acredita una pantalla funcional ni se desactiva la comprobación de componentes para simularla. Las rutas operativas requieren además aplicar las migraciones pendientes en desarrollo antes de usarse allí.
+### Pantalla principal
+
+La opción **Incidencias** del menú abre `incidents/index`, usando el layout del starter kit. Presenta tabla desde el breakpoint `md`, tarjetas en móvil, indicadores con texto y color, personas, fechas en UTC, resultados vacíos y navegación anterior/siguiente. En pantallas amplias el formulario aparece junto al listado; en las demás queda debajo, con un acceso directo «Nueva incidencia».
+
+Los filtros de estado y prioridad se aplican al seleccionar; el texto se envía con «Aplicar filtros» o Intro. Todo se consulta mediante Inertia, sin recargar el documento: los filtros quedan en la URL, la paginación los conserva y «Limpiar filtros» elimina también los cambios locales no enviados. La navegación conserva el borrador de creación y el scroll. El formulario de filtros se sincroniza con los parámetros devueltos por el servidor, también al navegar por el historial del navegador.
+
+La creación utiliza `Form` tipado, Wayfinder y los componentes existentes. Envía solo los cinco campos de creación y nunca incluye estado. Se bloquea durante el envío, conserva valores cuando hay errores y reinicia los campos tras éxito (prioridad predeterminada media). La validación se delega al servidor con `noValidate` para mostrar sus mensajes españoles junto a los campos; se mantienen límites HTML y atributos accesibles. Se reutiliza el toast de éxito existente y se muestra confirmación temporal en el formulario. Los formularios separan sus errores mediante error bags.
+
+**Pendiente:** `incidents/show` aún no tiene componente React. Los títulos enlazan a su ruta existente como preparación, pero abrirlos todavía no ofrece una pantalla funcional. No se implementaron operaciones de estado ni comentarios en la interfaz. La comprobación visual/interactiva de la pantalla principal sigue pendiente por fallo del navegador integrado; build y análisis estático no sustituyen esa revisión. Las rutas operativas requieren además aplicar las migraciones pendientes en desarrollo antes de usarse allí.
 
 ## Transiciones de estado
 
@@ -260,9 +268,11 @@ El éxito redirige con 303 a `incidents.index` y flash `toast.type = success` co
 
 Así se conserva el flujo de errores de formularios de Inertia sin usar un 409 que el cliente interprete como recarga o respuesta inesperada. Las peticiones JSON se distinguen por negociación de contenido; no se crea una API separada. Una incidencia inexistente devuelve 404; un invitado es redirigido a login o recibe 401 si solicita JSON. Fallos de persistencia no se convierten en conflictos: se propagan como errores de servidor y se revierten las escrituras.
 
-Se mantienen los middleware `web`, `auth` y `verified` del starter kit. No existen roles ni propiedad de incidencia que restrinjan a otros operadores autenticados. El modelo `User` actual no implementa `MustVerifyEmail`: conservar `verified` no activa una función nueva de verificación. El nombre autenticado debe respetar el límite de 120 caracteres del log; la acción devuelve error de validación si no lo cumple, sin truncarlo ni sustituirlo por datos del cliente. La interfaz React continúa pendiente; los tests del endpoint no siguen la redirección hacia esa página inexistente.
+Se mantienen los middleware `web`, `auth` y `verified` del starter kit. No existen roles ni propiedad de incidencia que restrinjan a otros operadores autenticados. El modelo `User` actual no implementa `MustVerifyEmail`: conservar `verified` no activa una función nueva de verificación. El nombre autenticado debe respetar el límite de 120 caracteres del log; la acción devuelve error de validación si no lo cumple, sin truncarlo ni sustituirlo por datos del cliente. Las acciones React de cambio de estado siguen pendientes; los tests del endpoint comprueban su redirección sin seguirla.
 
 ## Verificación y limitaciones
+
+Pantalla principal (16 de octubre de 2026): formato/lint focalizados mediante `npm run check --` sobre los ocho archivos frontend afectados, `npm run types:check` y `npm run build` correctos. Rutas revisadas y Wayfinder regenerado mediante Artisan/plugin Vite, sin editar código generado. El aviso conocido de `fontaine` permanece; no se añadieron dependencias ni se ocultó. Sin cambios de backend, operaciones sobre bases de datos ni repetición de tests PHP. Revisión visual y pruebas interactivas pendientes; ver [registro de desarrollo](docs/development.md).
 
 Fase de cambio de estado HTTP (16 de octubre de 2026): `php artisan test --compact tests/Feature/ChangeIncidentStatusEndpointTest.php tests/Feature/ChangeIncidentStatusTest.php tests/Feature/IncidentControllerTest.php`, 97 pruebas aprobadas y 437 aserciones. Verificados previamente los destinos efectivos de lectura y escritura como `prueba_optimaretail_test`, MySQL 5.7.44. Pint, PHPStan del código afectado y comprobación de rutas/middleware correctos. No se repitieron suite completa ni checks de frontend.
 

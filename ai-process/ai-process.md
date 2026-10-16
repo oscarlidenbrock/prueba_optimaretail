@@ -16,11 +16,12 @@ Los resultados concretos y las limitaciones de cada comprobación están en el r
 - Configuración de GitHub Actions con un servicio MySQL y credenciales exclusivas de CI, revisión de instalación y documentación del proyecto.
 - Primera fase del modelo de datos: migraciones, modelos Eloquent, relaciones, enums, factories y tests de incidencias, logs y comentarios.
 - Lógica interna de transiciones: reglas centralizadas, acción de cambio de estado con bloqueo y auditoría transaccional y tests de integridad, estados desactualizados y rollback.
-- Backend de creación y listado: controlador, Form Requests, rutas autenticadas, filtros Eloquent y pruebas HTTP, preparando el contrato Inertia de una página todavía pendiente.
+- Backend de creación y listado: controlador, Form Requests, rutas autenticadas, filtros Eloquent y pruebas HTTP, con contrato Inertia reutilizado por la pantalla principal.
 - Endpoint HTTP de cambio de estado: reutilización de la acción transaccional, actor autenticado y distinción entre validación y conflicto, con respuestas y flash compatibles con Inertia.
 - Consulta de detalle e historial y creación de comentarios: relaciones ordenadas, contrato Inertia sin pantalla React, validación y autor autenticado, con pruebas HTTP.
+- Pantalla principal React: componentes tipados, tabla/tarjetas, filtros y paginación Inertia, formulario de creación y navegación Wayfinder, reutilizando layout, componentes y confirmaciones del starter kit.
 
-Edición, eliminación, seeders de incidencias, frontend del panel y diagnóstico de inconsistencias permanecen pendientes.
+Edición, eliminación, seeders de incidencias, pantalla de detalle, comentarios y cambios de estado desde la interfaz y diagnóstico de inconsistencias permanecen pendientes.
 
 ## Decisiones técnicas y manuales confirmadas por el usuario
 
@@ -35,6 +36,8 @@ Edición, eliminación, seeders de incidencias, frontend del panel y diagnóstic
 Los tamaños de campos, defaults, índices y política restrictiva de claves foráneas fueron decisiones de implementación de Codex, documentadas para revisión. No se consideran revisadas manualmente por el usuario. Tampoco se atribuyen al usuario comprobaciones visuales o de instalación limpia que no se hayan realizado.
 
 Para detalle y comentarios, el usuario confirmó los órdenes temporales, el autor exclusivamente autenticado y la preparación del contrato sin componentes React. La estructura de props, el límite de contenido y las respuestas concretas son decisiones de implementación pendientes de revisión, detalladas en el registro de prompts y el README.
+
+Para la pantalla principal, el usuario solicitó React 19, TypeScript y Tailwind 4, reutilizar el starter kit y el backend y limitar la interfaz a listado, filtros y creación. El diseño concreto, los breakpoints y los componentes extraídos son decisiones de implementación pendientes de revisión visual/manual; no se ha atribuido esa revisión al usuario.
 
 ## Errores detectados en el código asistido por IA y correcciones realizadas
 
