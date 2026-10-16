@@ -119,7 +119,22 @@ La suite utiliza exclusivamente `prueba_optimaretail_test`. La conexión y las c
 Para preparar otro equipo, después de instalar las dependencias y compilar el frontend:
 
 1. Crear una base independiente llamada `prueba_optimaretail_test`, con `utf8mb4`, collation `utf8mb4_unicode_ci` y motor predeterminado InnoDB.
+
+    Si todavía no existe, desde el cliente MySQL:
+
+    ```sql
+    CREATE DATABASE prueba_optimaretail_test
+        CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    ```
+
 2. Crear `.env.testing` en la raíz a partir de `.env.example`, sin copiar las credenciales de desarrollo a archivos versionados. Definir `APP_ENV=testing`, `DB_CONNECTION=mysql`, `DB_DATABASE=prueba_optimaretail_test` y completar únicamente en ese archivo las variables reales de conexión: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` y, si procede, `DB_SOCKET`. Dejar `DB_URL` vacío y definir `DB_CHARSET` y `DB_COLLATION` con los valores indicados.
+
+    Solo si `.env.testing` no existe:
+
+    ```bash
+    cp .env.example .env.testing
+    ```
+
 3. Generar su clave propia y restringir permisos:
 
     ```bash
@@ -164,7 +179,7 @@ El plugin de fuentes de Laravel Vite intenta generar fuentes de sustitución con
 ### Diagnóstico y evaluación de reparaciones
 
 ```bash
-php artisan incidents:diagnose --dry-run --no-interaction
+php artisan incidents:diagnose --env=testing --dry-run --no-interaction
 php artisan incidents:diagnose --env=testing --apply --no-interaction
 ```
 
@@ -174,12 +189,34 @@ Revisa todas las incidencias, no solo las simuladas. Cada hallazgo identifica in
 
 ### Tres casos simulados, únicamente bajo ejecución explícita
 
-Después de verificar `prueba_optimaretail_test` según la sección de pruebas, se pueden generar los ejemplos en esa base:
+Desde una instalación nueva, completar primero [instalación local](#instalación-local) y [preparación de testing](#pruebas-con-mysql), incluidas dependencias, base MySQL independiente, `.env.testing` y clave. La secuencia exacta para reproducir el diagnóstico es:
 
-```bash
-php artisan db:seed --env=testing --class=InconsistentIncidentSeeder --no-interaction
-php artisan incidents:diagnose --env=testing --dry-run --no-interaction
-```
+1. Ejecutar solo las pruebas afectadas, antes de cargar fixtures por consola:
+
+    ```bash
+    php artisan test --compact tests/Feature/IncidentDiagnosisTest.php
+    ```
+
+    `tests/TestCase.php` comprueba las conexiones PDO efectivas de lectura/escritura antes de que `RefreshDatabase` prepare las tablas en `prueba_optimaretail_test`. Esto evita intentar sembrar una base nueva sin esquema. Si falla la protección de conexión o alguna prueba, detenerse y corregir la configuración; no continuar con el seeder. La base de testing es efímera: las pruebas pueden reiniciarla y no debe contener datos que se necesiten conservar.
+
+2. Cargar y repetir el seeder explícito en testing:
+
+    ```bash
+    php artisan db:seed --env=testing --class=InconsistentIncidentSeeder --no-interaction
+    php artisan db:seed --env=testing --class=InconsistentIncidentSeeder --no-interaction
+    ```
+
+3. Ejecutar los tres modos, por separado:
+
+    ```bash
+    php artisan incidents:diagnose --env=testing --no-interaction
+    php artisan incidents:diagnose --env=testing --dry-run --no-interaction
+    php artisan incidents:diagnose --env=testing --apply --no-interaction
+    ```
+
+Tras sembrar dos veces se esperan **3 incidencias y 3 logs**, no 6. Los tres modos deben mostrar los mismos IDs, tipos y evidencia, **3 hallazgos pendientes** y **0 correcciones aplicadas**, sin escribir. El modo predeterminado y `--dry-run` producen la misma salida; `--apply` cambia el encabezado y explica por qué no aplica correcciones. Los IDs concretos pueden variar. El código **1** de esos diagnósticos es el resultado esperado al existir hallazgos: no encadenarlos con `&&` ni confundirlo con un fallo de detección. Si se usa un script con `set -e`, hay que tratar ese código expresamente.
+
+Las pruebas del primer paso verifican además la igualdad de snapshots completos antes/después y que las consultas de los tres modos sean solo SELECT. La reproducción por consola deja las tres fixtures en testing; una ejecución posterior de pruebas puede eliminarlas al preparar de nuevo esa base. Esta secuencia se ha reproducido en el entorno existente, **no equivale a haber realizado una instalación limpia en otro equipo**.
 
 **No ejecutar el seeder sobre `prueba_optimaretail` sin autorización adicional.** No se carga desde `DatabaseSeeder`, instalaciones habituales ni el comando de diagnóstico. Crea solo tres incidencias y tres logs en total, sin usuarios o comentarios nuevos y sin modificar incidencias previas:
 
