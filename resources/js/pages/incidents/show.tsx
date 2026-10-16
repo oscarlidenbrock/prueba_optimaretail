@@ -53,11 +53,6 @@ export default function IncidentShow({ incident, allowedTransitions }: Props) {
                             ].label.toLowerCase()}
                         </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                        Fechas almacenadas en UTC y mostradas en la zona horaria
-                        de tu navegador. Cada fecha indica su zona; el valor UTC
-                        está disponible al situar el cursor sobre ella.
-                    </p>
                 </header>
                 <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
                     <div className="grid min-w-0 gap-6">

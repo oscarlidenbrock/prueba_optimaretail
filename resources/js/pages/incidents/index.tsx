@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import type { MouseEvent } from 'react';
 import { IncidentCreateForm } from '@/components/incidents/incident-create-form';
 import { IncidentFilters } from '@/components/incidents/incident-filters';
 import { IncidentList } from '@/components/incidents/incident-list';
@@ -11,6 +12,19 @@ import type {
 } from '@/types/incidents';
 
 type Props = { incidents: IncidentPagination; filters: Filters };
+
+function focusCreationForm(event: MouseEvent<HTMLAnchorElement>) {
+    const form = document.getElementById('new-incident');
+    const title = document.querySelector<HTMLInputElement>('#incident-title');
+
+    if (!form || !title) {
+        return;
+    }
+
+    event.preventDefault();
+    form.scrollIntoView({ block: 'start' });
+    title.focus({ preventScroll: true });
+}
 
 export default function IncidentsIndex({ incidents, filters }: Props) {
     return (
@@ -29,7 +43,9 @@ export default function IncidentsIndex({ incidents, filters }: Props) {
                         incidencias que necesitan atención.
                     </p>
                     <Button asChild className="mt-2 w-fit 2xl:hidden">
-                        <a href="#new-incident">Nueva incidencia</a>
+                        <a href="#new-incident" onClick={focusCreationForm}>
+                            Nueva incidencia
+                        </a>
                     </Button>
                 </header>
                 <div className="grid min-w-0 items-start gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">

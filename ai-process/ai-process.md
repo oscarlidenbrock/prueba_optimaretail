@@ -20,11 +20,12 @@ Los resultados concretos y las limitaciones de cada comprobación están en el r
 - Endpoint HTTP de cambio de estado: reutilización de la acción transaccional, actor autenticado y distinción entre validación y conflicto, con respuestas y flash compatibles con Inertia.
 - Consulta de detalle e historial y creación de comentarios: relaciones ordenadas, contrato Inertia, validación y autor autenticado, con pruebas HTTP.
 - Pantalla principal React: componentes tipados, tabla/tarjetas, filtros y paginación Inertia, formulario de creación y navegación Wayfinder, reutilizando layout, componentes y confirmaciones del starter kit.
+- Ajustes finales de interfaz: identidad propia en el sidebar, eliminación de enlaces genéricos, acceso al formulario con foco, enlaces de detalle distinguibles y fechas locales simplificadas, sin rediseñar las pantallas.
 - Detalle React: información completa, línea temporal, comentarios y acciones permitidas por el servidor con confirmación, errores y fechas locales. Ajustes mínimos del contrato y redirecciones para integrar la pantalla sin duplicar la lógica transaccional.
 - Diagnóstico inicial: fixtures independientes de inconsistencias, comando de solo lectura con evidencia y pruebas de detección, datos correctos y repetibilidad. Consultas y límites documentados en el README.
 - Evaluación de reparaciones: dry-run predeterminado, `--apply` explícito, propuestas y casos pendientes. Sin reparaciones automáticas artificiales: la evidencia actual no permite determinar una corrección; procedimiento humano documentado y pruebas de no escritura/idempotencia.
 
-Edición, eliminación y seeders normales de incidencias permanecen pendientes. Los hallazgos requieren una decisión humana con evidencia adicional antes de corregirlos; el comando no implementa escrituras. Las pantallas implementadas todavía requieren revisión visual/interactiva.
+Edición, eliminación y seeders normales de incidencias permanecen pendientes. Los hallazgos requieren una decisión humana con evidencia adicional antes de corregirlos; el comando no implementa escrituras. El usuario ha comunicado comprobación manual de estructura responsive, distribución, indicadores y formularios; los últimos ajustes de interfaz aún requieren comprobación interactiva.
 
 ## Decisiones técnicas y manuales confirmadas por el usuario
 
@@ -47,6 +48,8 @@ En el detalle, se solicitaron historial, comentarios, acciones autorizadas por e
 Para diagnóstico, el usuario pidió tres casos separados, generación explícita repetible y detección sin escrituras ni reparaciones. Identificadores de fixtures, criterios concretos de incoherencia, códigos de salida y estrategia de lotes son decisiones de implementación pendientes de revisión manual; sus limitaciones constan en el README.
 
 En la fase de reparación, el usuario autorizó explícitamente no automatizar cuando faltase evidencia y pidió un procedimiento posterior a una decisión documentada. Codex clasificó los tres casos como ambiguos y lo explicó antes de implementar; no se atribuye al usuario haber confirmado una fuente autoritativa o una corrección concreta. Evaluación y procedimiento están pendientes de revisión manual.
+
+Para los ajustes finales, el usuario confirmó que la distribución y elementos actuales ya estaban comprobados manualmente y pidió conservarlos. Se han aplicado identidad, foco, enlaces y simplificación de fechas sin alterar negocio ni diseño; esa confirmación previa no se presenta como validación manual de los cambios nuevos.
 
 ## Errores detectados en el código asistido por IA y correcciones realizadas
 

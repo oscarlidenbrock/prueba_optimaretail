@@ -26,16 +26,11 @@ export function IncidentDate({ value }: { value: string | null }) {
         hour: '2-digit',
         minute: '2-digit',
         timeZone,
-        timeZoneName: 'short',
     }).format(new Date(value));
 
     return (
-        <time
-            dateTime={value}
-            title={`Almacenamiento UTC: ${formatIncidentDate(value)}`}
-        >
-            {localDate}{' '}
-            <span className="text-xs text-muted-foreground">({timeZone})</span>
+        <time dateTime={value} title={formatIncidentDate(value)}>
+            {localDate}
         </time>
     );
 }

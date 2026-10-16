@@ -1,11 +1,8 @@
 import { Link } from '@inertiajs/react';
+import { IncidentDate } from '@/components/incidents/incident-date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    formatIncidentDate,
-    incidentPriorities,
-    incidentStatuses,
-} from '@/lib/incidents';
+import { incidentPriorities, incidentStatuses } from '@/lib/incidents';
 import { index, show } from '@/routes/incidents';
 import type {
     Incident,
@@ -37,7 +34,7 @@ function IncidentTitle({ incident }: { incident: Incident }) {
     return (
         <Link
             href={show(incident.id)}
-            className="font-medium break-words underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
+            className="font-medium break-words underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-current focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
         >
             {incident.title}
             <span className="sr-only">
@@ -95,7 +92,7 @@ export function IncidentList({
                                         'Incidencia',
                                         'Prioridad',
                                         'Estado',
-                                        'Fecha (UTC)',
+                                        'Fecha',
                                         'Personas',
                                     ].map((title) => (
                                         <th
@@ -155,16 +152,9 @@ export function IncidentList({
                                             </Badge>
                                         </td>
                                         <td className="px-4 py-4">
-                                            <time
-                                                dateTime={
-                                                    incident.created_at ??
-                                                    undefined
-                                                }
-                                            >
-                                                {formatIncidentDate(
-                                                    incident.created_at,
-                                                )}
-                                            </time>
+                                            <IncidentDate
+                                                value={incident.created_at}
+                                            />
                                         </td>
                                         <td className="max-w-48 px-4 py-4 break-words">
                                             <p>
@@ -204,16 +194,9 @@ export function IncidentList({
                                             Fecha de creación
                                         </dt>
                                         <dd>
-                                            <time
-                                                dateTime={
-                                                    incident.created_at ??
-                                                    undefined
-                                                }
-                                            >
-                                                {formatIncidentDate(
-                                                    incident.created_at,
-                                                )}
-                                            </time>
+                                            <IncidentDate
+                                                value={incident.created_at}
+                                            />
                                         </dd>
                                     </div>
                                     <div>
