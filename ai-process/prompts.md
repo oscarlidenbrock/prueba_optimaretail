@@ -14,3 +14,11 @@
 - **Cambios y decisiones:** ampliadas las instrucciones y versiones, con instalación, configuración, migraciones y seeder para una base nueva, compilación, arranque, usuario de demostración y pruebas; diagnóstico marcado pendiente. Corregidas también las referencias obsoletas que estaban en el alcance y recogidas en `AGENTS.md` las decisiones ya acordadas. Commit limitado a documentación, instrucciones y registros; no incluye cambios previos de configuración o código de pruebas.
 - **Comprobaciones:** requisitos de plataforma Composer correctos; PHP, Composer, Node, npm, `pdo_mysql` y MySQL comprobados; scripts y ayudas revisados; seis documentos sin enlaces locales rotos ni bloques de código sin cerrar; diff sin errores de espacios; no quedan las referencias obsoletas buscadas. Sin instalaciones, migraciones, seeders, pruebas ni compilaciones ejecutadas en esta tarea.
 - **Revisión manual:** pendiente del usuario; instalación completa en otro equipo pendiente.
+- **Commit verificado:** `b1829cd` — `docs: complete setup guide and align assessment references`.
+
+## 2026-10-16 — Commit de los archivos pendientes
+
+- **Prompt:** «sigue habiendo archivos sin commitear, añade commit», con referencia a `ai-process/prompts.md`.
+- **Cambios y decisiones:** incluir `.env.example`, `.gitignore`, `phpunit.xml` y `tests/TestCase.php`, que quedaron fuera del commit anterior; retirar del README el aviso ya obsoleto y actualizar los registros. Mantener `.env` y `.env.testing` excluidos, sin registrar credenciales.
+- **Comprobaciones:** base efectiva verificada como `prueba_optimaretail_test`, MySQL 5.7.44; suite con 21 aprobadas, 3 omitidas por 2FA desactivado y 53 aserciones; sintaxis PHP, Pint y diff correctos. No se ejecutaron migraciones, limpiezas ni tests sobre `prueba_optimaretail`. No se repitió PHPStan; continúa documentado su error previo ajeno a esta configuración.
+- **Revisión manual:** pendiente del usuario.

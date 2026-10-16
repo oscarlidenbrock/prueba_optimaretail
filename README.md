@@ -110,8 +110,6 @@ php artisan serve --host=127.0.0.1 --port=8000 --no-interaction
 
 La suite utiliza exclusivamente `prueba_optimaretail_test`. La conexión y las credenciales locales se guardan en `.env.testing`, excluido de Git y con permisos `600`. No se comparten en documentación ni en `phpunit.xml`.
 
-Esta configuración de pruebas está aplicada y verificada en el árbol de trabajo local. Sus cambios previos en `.gitignore`, `phpunit.xml` y `tests/TestCase.php` quedan fuera del commit documental de esta tarea y deben versionarse antes de reproducir estas instrucciones desde un clon nuevo.
-
 Para preparar otro equipo, después de instalar las dependencias y compilar el frontend:
 
 1. Crear una base independiente llamada `prueba_optimaretail_test`, con `utf8mb4`, collation `utf8mb4_unicode_ci` y motor predeterminado InnoDB.
@@ -159,7 +157,7 @@ Al implementar esa tarea se añadirán aquí los comandos reales, las consultas,
 
 ## Verificación y limitaciones
 
-Última ejecución de pruebas registrada el 16 de octubre de 2026, anterior a esta ampliación documental:
+Última ejecución de pruebas registrada el 16 de octubre de 2026, al preparar el commit de configuración MySQL y pruebas aisladas:
 
 - Prueba de humo: 1 aprobada.
 - Suite completa: 21 aprobadas, 3 omitidas por 2FA desactivado y 53 aserciones.
@@ -168,4 +166,4 @@ Al implementar esa tarea se añadirán aquí los comandos reales, las consultas,
 - Pint y PHPStan sobre `tests/TestCase.php`: correctos.
 - Análisis estático general: pendiente de corregir un problema previo en `database/factories/UserFactory.php:49`; `withTwoFactor()` declara un retorno pero está vacío. El análisis necesitó `--memory-limit=512M` al superar el límite local de 128 MB. No se ha modificado esa funcionalidad.
 
-En esta tarea documental se comprobaron las versiones, las opciones de los comandos de instalación, migración, seeder y arranque, los enlaces locales y el diff. No se ejecutaron instalaciones, migraciones, seeders, pruebas ni compilaciones. La instalación completa en otro equipo y la revisión manual del usuario siguen pendientes.
+La documentación se contrastó con las versiones, scripts y ayudas locales, y se comprobaron sus enlaces y el diff. Antes del commit de configuración se verificó de nuevo la base efectiva `prueba_optimaretail_test` en MySQL 5.7.44 y se repitieron la suite, la validación de sintaxis y Pint con éxito. No se ejecutaron instalaciones, seeders ni compilaciones, ni operaciones de escritura sobre la base de desarrollo. La instalación completa en otro equipo y la revisión manual del usuario siguen pendientes.

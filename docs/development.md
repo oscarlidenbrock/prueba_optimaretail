@@ -17,3 +17,9 @@
 - Comprobaciones: versiones locales y versión real del servidor MySQL; `composer check-platform-reqs` correcto; extensión `pdo_mysql` presente; ayudas y listas de comandos consultadas; seis documentos con enlaces locales y bloques de código correctos; `git diff --check` sin incidencias. La búsqueda de referencias obsoletas no encontró coincidencias.
 - No se ejecutaron instalaciones, migraciones, seeders, pruebas ni compilaciones en esta tarea documental. Se conservan los resultados anteriores identificados como tales. Instalación completa en otro equipo y revisión manual del usuario pendientes.
 - Alcance del commit documental: README, alcance, instrucciones y registros de desarrollo e IA. Los cambios previos de configuración y código de pruebas quedan fuera de este commit.
+
+## 2026-10-16 — Versionar la configuración MySQL pendiente
+
+- A petición del usuario, se incluyen los cuatro archivos que quedaron fuera del commit documental: `.env.example` con MySQL y credenciales vacías, `.gitignore` para excluir `.env.testing`, `phpunit.xml` sin imposiciones SQLite y `tests/TestCase.php` con la comprobación previa a `RefreshDatabase`. El README deja de indicar que esos cambios están pendientes de versionar.
+- Antes de repetir la suite se verificó `SELECT DATABASE()` sobre la conexión real: `prueba_optimaretail_test`, servidor MySQL 5.7.44. Resultado: 21 aprobadas, 3 omitidas por 2FA desactivado y 53 aserciones; sintaxis PHP, Pint y diff correctos.
+- `.env` y `.env.testing` permanecen ignorados y fuera del commit. No se realizaron migraciones, limpiezas ni tests sobre `prueba_optimaretail`. No se repitió el análisis estático general; su limitación anterior continúa documentada. Revisión manual del usuario pendiente.
