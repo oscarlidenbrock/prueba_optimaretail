@@ -17,8 +17,9 @@ Los resultados concretos y las limitaciones de cada comprobación están en el r
 - Primera fase del modelo de datos: migraciones, modelos Eloquent, relaciones, enums, factories y tests de incidencias, logs y comentarios.
 - Lógica interna de transiciones: reglas centralizadas, acción de cambio de estado con bloqueo y auditoría transaccional y tests de integridad, estados desactualizados y rollback.
 - Backend de creación y listado: controlador, Form Requests, rutas autenticadas, filtros Eloquent y pruebas HTTP, preparando el contrato Inertia de una página todavía pendiente.
+- Endpoint HTTP de cambio de estado: reutilización de la acción transaccional, actor autenticado y distinción entre validación y conflicto, con respuestas y flash compatibles con Inertia.
 
-Edición, eliminación, cambios de estado por HTTP, consulta de historial, comentarios, seeders de incidencias, frontend del panel y diagnóstico de inconsistencias permanecen pendientes.
+Edición, eliminación, consulta de historial, comentarios, seeders de incidencias, frontend del panel y diagnóstico de inconsistencias permanecen pendientes.
 
 ## Decisiones técnicas y manuales confirmadas por el usuario
 
@@ -28,6 +29,7 @@ Edición, eliminación, cambios de estado por HTTP, consulta de historial, comen
 - En el modelo de datos: estados y prioridades especificados por el usuario, persistencia VARCHAR, responsable como nombre opcional, metadata JSON nullable, valores auditados nullable y logs con solo `created_at`.
 - En las transiciones: únicamente abierta a revisión y revisión a bloqueada o resuelta, rechazando repeticiones; bloqueo de fila y auditoría en una misma transacción, con propagación de errores y rollback. La validación del nombre del actor y el contrato de retorno son decisiones de implementación pendientes de revisión manual.
 - En creación/listado: campos requeridos, estado inicial impuesto por servidor, filtros combinables, orden por fecha e ID y acceso autenticado sin ampliar la autenticación. Preparar el contrato Inertia sin crear una página React, los límites adicionales y mantener solo auditoría de cambios de estado son decisiones de implementación pendientes de revisión manual.
+- En el endpoint de estado: ruta PATCH protegida con el acceso actual, validación mediante Form Request, reutilización de la acción existente, actor obtenido únicamente de la sesión y errores diferenciados. La excepción de dominio, los códigos JSON y el flash de conflicto en redirecciones Inertia son decisiones de implementación pendientes de revisión manual.
 
 Los tamaños de campos, defaults, índices y política restrictiva de claves foráneas fueron decisiones de implementación de Codex, documentadas para revisión. No se consideran revisadas manualmente por el usuario. Tampoco se atribuyen al usuario comprobaciones visuales o de instalación limpia que no se hayan realizado.
 

@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\ChangeIncidentStatus;
 use App\Enums\IncidentPriority;
 use App\Enums\IncidentStatus;
+use App\Exceptions\IncidentStatusConflict;
 use App\Http\Requests\IndexIncidentRequest;
 use App\Http\Requests\StoreIncidentRequest;
+use App\Http\Requests\UpdateIncidentStatusRequest;
 use App\Models\Incident;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,5 +47,43 @@ class IncidentController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Incidencia creada correctamente.']);
 
         return to_route('incidents.index');
+    }
+
+    public function updateStatus(
+        UpdateIncidentStatusRequest $request,
+        Incident $incident,
+        ChangeIncidentStatus $changeIncidentStatus,
+    ): RedirectResponse|JsonResponse {
+        try {
+            $changeIncidentStatus->handle(
+                $incident,
+                IncidentStatus::from($request->string('status')->toString()),
+                $request->user()->name,
+            );
+        } catch (IncidentStatusConflict $exception) {
+            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+                return response()->json([
+                    'message' => $exception->getMessage(),
+                    'code' => 'incident_status_conflict',
+                    'errors' => ['status' => [$exception->getMessage()]],
+                ], 409);
+            }
+
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => $exception->getMessage(),
+                'code' => 'incident_status_conflict',
+            ]);
+
+            return to_route('incidents.index', [], 303)
+                ->withErrors(['status' => $exception->getMessage()]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Estado de la incidencia actualizado correctamente.',
+        ]);
+
+        return to_route('incidents.index', [], 303);
     }
 }

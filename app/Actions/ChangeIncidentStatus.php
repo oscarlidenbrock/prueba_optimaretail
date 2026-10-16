@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Enums\IncidentStatus;
+use App\Exceptions\IncidentStatusConflict;
 use App\Models\Incident;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -14,6 +15,9 @@ class ChangeIncidentStatus
     /**
      * Persist a status change and its audit entry atomically using the locked database state.
      * The supplied instance is only used for its ID; the returned instance holds the new state.
+     *
+     * @throws IncidentStatusConflict
+     * @throws ValidationException
      */
     public function handle(Incident $incident, IncidentStatus $newStatus, string $actorName): Incident
     {
@@ -31,9 +35,7 @@ class ChangeIncidentStatus
             $oldStatus = $lockedIncident->status;
 
             if (! $oldStatus->canTransitionTo($newStatus)) {
-                throw ValidationException::withMessages([
-                    'status' => 'El cambio de estado solicitado no está permitido.',
-                ]);
+                throw new IncidentStatusConflict;
             }
 
             $lockedIncident->status = $newStatus;

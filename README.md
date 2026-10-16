@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend de creación/listado y la acción interna de cambio de estado con auditoría transaccional. La página React de incidencias y las demás operaciones siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos y el backend de creación, listado y cambio de estado con auditoría transaccional. La página React de incidencias y las demás operaciones siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -197,14 +197,15 @@ Los campos son obligatorios salvo los marcados nullable y los timestamps convenc
 - `incidents(status, created_at)` y `incidents(priority, created_at)`: filtro por estado o prioridad con orden por fecha.
 - `incident_logs(incident_id, created_at)` e `incident_comments(incident_id, created_at)`: historial y comentarios de una incidencia en orden temporal. Estos índices también soportan las claves foráneas, sin otro índice redundante en `incident_id`. InnoDB incorpora la clave primaria a los índices secundarios, permitiendo desempatar por `id`.
 
-La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP de creación y listado; edición, eliminación, seeders y frontend de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP de creación, listado y cambio de estado; edición, eliminación, seeders y frontend de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
 
-## Backend de creación y listado
+## Backend HTTP de incidencias
 
-| Método y ruta         | Nombre            | Operación                                                         |
-| --------------------- | ----------------- | ----------------------------------------------------------------- |
-| GET/HEAD `/incidents` | `incidents.index` | Listado paginado y filtrado mediante `IncidentController::index`. |
-| POST `/incidents`     | `incidents.store` | Creación mediante `IncidentController::store`.                    |
+| Método y ruta                        | Nombre                    | Operación                                                         |
+| ------------------------------------ | ------------------------- | ----------------------------------------------------------------- |
+| GET/HEAD `/incidents`                | `incidents.index`         | Listado paginado y filtrado mediante `IncidentController::index`. |
+| POST `/incidents`                    | `incidents.store`         | Creación mediante `IncidentController::store`.                    |
+| PATCH `/incidents/{incident}/status` | `incidents.status.update` | Cambio de estado mediante `IncidentController::updateStatus`.     |
 
 Son rutas web con sesión y los middleware `auth` y `verified` existentes, sin ampliar la autenticación. Se conserva la protección CSRF de las peticiones de escritura. No se introducen API separada, servicios ni acciones adicionales para estas operaciones.
 
@@ -230,13 +231,28 @@ El listado ordena por `created_at DESC, id DESC`, pagina de 15 en 15 y conserva 
 
 Se rechazan los demás cambios, incluido repetir el estado actual. `blocked` y `resolved` no tienen salidas; no se implementa reapertura.
 
-`ChangeIncidentStatus::handle(Incident $incident, IncidentStatus $newStatus, string $actorName): Incident` recorta espacios del nombre del actor y exige entre 1 y 120 caracteres. El nombre suministrado se registra como actor, sin presentarlo como identidad autenticada. La acción abre `DB::transaction()`, vuelve a consultar la incidencia por ID con `lockForUpdate()` y solo entonces valida la transición contra el estado actual de MySQL.
+`ChangeIncidentStatus::handle(Incident $incident, IncidentStatus $newStatus, string $actorName): Incident` recorta espacios del nombre del actor y exige entre 1 y 120 caracteres. La acción no autentica al actor por sí misma; su endpoint HTTP obtiene el nombre del usuario de sesión. La acción abre `DB::transaction()`, vuelve a consultar la incidencia por ID con `lockForUpdate()` y solo entonces valida la transición contra el estado actual de MySQL.
 
-La actualización y el log se guardan juntos. El log contiene `action = status_changed`, el estado anterior real, el nuevo, el actor y `created_at` automático en UTC. Los errores de transición y actor se propagan como `ValidationException` con claves `status` y `actor_name`; los fallos de persistencia se propagan y provocan rollback. Una cancelación de escritura por eventos Eloquent se convierte en error explícito para impedir una actualización sin log. Si la incidencia ya no existe, se propaga `ModelNotFoundException`.
+La actualización y el log se guardan juntos. El log contiene `action = status_changed`, el estado anterior real, el nuevo, el actor y `created_at` automático en UTC. Una transición incompatible con el estado actual lanza `IncidentStatusConflict`; la validación del actor mantiene `ValidationException` con clave `actor_name`. Los fallos de persistencia se propagan y provocan rollback. Una cancelación de escritura por eventos Eloquent se convierte en error explícito para impedir una actualización sin log. Si la incidencia ya no existe, se propaga `ModelNotFoundException`.
 
-La acción devuelve una instancia consultada de nuevo; no actualiza la instancia original del llamador ni sus relaciones cargadas. Las peticiones repetidas se rechazan sin duplicar el historial. El bloqueo de fila y la validación dentro de la transacción evitan decidir con un estado obsoleto. Los tests cubren instancias desactualizadas; no se ha realizado una prueba con conexiones concurrentes independientes. No hay todavía rutas ni interfaz para invocar la acción.
+La acción devuelve una instancia consultada de nuevo; no actualiza la instancia original del llamador ni sus relaciones cargadas. Las peticiones repetidas se rechazan sin duplicar el historial. El bloqueo de fila y la validación dentro de la transacción evitan decidir con un estado obsoleto. Los tests cubren instancias desactualizadas; no se ha realizado una prueba con conexiones concurrentes independientes.
+
+El endpoint PATCH usa `UpdateIncidentStatusRequest` para exigir un `status` textual del enum. El controlador obtiene el nombre del actor del usuario autenticado y llama a la acción por inyección de dependencias. Ignora cualquier actor o usuario enviado en el payload; no reproduce la matriz de transición ni abre otra transacción.
+
+El éxito redirige con 303 a `incidents.index` y flash `toast.type = success` con mensaje en español. La distinción entre errores es:
+
+| Caso                                                                   | Petición JSON                                               | Petición Inertia                                                                                           |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Estado ausente, tipo incorrecto o valor fuera del enum                 | 422, mensaje en español en `errors.status`                  | Redirección 303 con error de campo, sin código de conflicto.                                               |
+| Estado del enum incompatible con el estado actual, incluida repetición | 409 con `code = incident_status_conflict` y `errors.status` | Redirección 303 con error de campo y flash `toast` de tipo `error`, con `code = incident_status_conflict`. |
+
+Así se conserva el flujo de errores de formularios de Inertia sin usar un 409 que el cliente interprete como recarga o respuesta inesperada. Las peticiones JSON se distinguen por negociación de contenido; no se crea una API separada. Una incidencia inexistente devuelve 404; un invitado es redirigido a login o recibe 401 si solicita JSON. Fallos de persistencia no se convierten en conflictos: se propagan como errores de servidor y se revierten las escrituras.
+
+Se mantienen los middleware `web`, `auth` y `verified` del starter kit. No existen roles ni propiedad de incidencia que restrinjan a otros operadores autenticados. El modelo `User` actual no implementa `MustVerifyEmail`: conservar `verified` no activa una función nueva de verificación. El nombre autenticado debe respetar el límite de 120 caracteres del log; la acción devuelve error de validación si no lo cumple, sin truncarlo ni sustituirlo por datos del cliente. La interfaz React continúa pendiente; los tests del endpoint no siguen la redirección hacia esa página inexistente.
 
 ## Verificación y limitaciones
+
+Fase de cambio de estado HTTP (16 de octubre de 2026): `php artisan test --compact tests/Feature/ChangeIncidentStatusEndpointTest.php tests/Feature/ChangeIncidentStatusTest.php tests/Feature/IncidentControllerTest.php`, 97 pruebas aprobadas y 437 aserciones. Verificados previamente los destinos efectivos de lectura y escritura como `prueba_optimaretail_test`, MySQL 5.7.44. Pint, PHPStan del código afectado y comprobación de rutas/middleware correctos. No se repitieron suite completa ni checks de frontend.
 
 Fase de backend de creación/listado (16 de octubre de 2026): `php artisan test --compact tests/Feature/IncidentControllerTest.php tests/Feature/IncidentModelTest.php`, 66 pruebas aprobadas y 253 aserciones. Verificadas las conexiones efectivas de lectura y escritura como `prueba_optimaretail_test`, MySQL 5.7.44. Pint, PHPStan de los archivos afectados, rutas/middleware, formato documental y enlaces correctos. Se ejecutaron únicamente las comprobaciones afectadas; no se repitieron suite completa, build ni frontend. Los resultados de fases anteriores se mantienen como históricos.
 

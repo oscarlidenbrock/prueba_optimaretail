@@ -2,6 +2,7 @@
 
 use App\Actions\ChangeIncidentStatus;
 use App\Enums\IncidentStatus;
+use App\Exceptions\IncidentStatusConflict;
 use App\Models\Incident;
 use App\Models\IncidentLog;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -50,11 +51,7 @@ test('forbidden transitions leave the incident and its history unchanged', funct
     $original = $incident->fresh()->getRawOriginal();
 
     expect(fn () => (new ChangeIncidentStatus)->handle($incident, $newStatus, 'Demo operator'))
-        ->toThrow(function (ValidationException $exception) {
-            expect($exception->errors())->toBe([
-                'status' => ['El cambio de estado solicitado no está permitido.'],
-            ]);
-        });
+        ->toThrow(IncidentStatusConflict::class, 'El cambio de estado solicitado no está permitido para el estado actual de la incidencia.');
 
     expect($incident->fresh()->getRawOriginal())->toBe($original);
     $this->assertDatabaseCount('incident_logs', 0);
@@ -81,7 +78,7 @@ test('repeating a completed transition does not create a duplicate audit entry',
     $originalLog = $incident->logs()->sole()->getRawOriginal();
 
     expect(fn () => $action->handle($incident, IncidentStatus::InReview, 'Another operator'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(IncidentStatusConflict::class);
 
     expect($incident->fresh()->status)->toBe(IncidentStatus::InReview);
     expect($incident->logs()->sole()->getRawOriginal())->toBe($originalLog);
@@ -114,7 +111,7 @@ test('stale instances cannot permit a transition rejected by the current databas
     $action->handle($reviewed, IncidentStatus::Resolved, 'First operator');
 
     expect(fn () => $action->handle($incident, IncidentStatus::InReview, 'Second operator'))
-        ->toThrow(ValidationException::class);
+        ->toThrow(IncidentStatusConflict::class);
 
     expect($incident->fresh()->status)->toBe(IncidentStatus::Resolved);
     $this->assertDatabaseCount('incident_logs', 2);
