@@ -69,7 +69,7 @@ Maintain the following as needed; updates within these paths are authorized:
 
 - `README.md`: accurate generic installation, requirements, environment setup, migration/seed, startup, test/diagnosis commands, and key decisions.
 - `docs/development.md`: concise implementation progress, technical decisions, operational details, and verification results.
-- `ai-process/ai-process.md`: AI tools/contributions, confirmed manual decisions, and actual errors/corrections.
+- `ai-process/ai-process.md`: non-chronological overview of AI tools/contributions, confirmed manual decisions, and actual errors/corrections; update at the end of relevant project phases and link to detailed records instead of duplicating them.
 - `ai-process/prompts.md`: chronological programming/architecture requests and outcomes only.
 - `ai-process/technical-assessment-scope.md` and `docs/prueba_tecnica_mid_senior.pdf`: scope reference and original source, protected as described above.
 

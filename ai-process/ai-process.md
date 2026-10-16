@@ -1,56 +1,44 @@
 # Uso de IA
 
-## 2026-10-16 — Configuración de pruebas MySQL
+Este documento resume la asistencia de IA en el proyecto y se actualiza al finalizar fases relevantes. Las peticiones de programación y los resultados operativos se conservan en los registros detallados enlazados al final, sin reproducir aquí su cronología.
 
-- Herramientas utilizadas: Codex, Laravel Boost para documentación y consultas de lectura, CLI de PHP/Artisan, Pest, Pint, PHPStan y Git para revisar cambios.
-- Petición dirigida por el usuario: aislar las pruebas en `prueba_optimaretail_test`, compatible con MySQL 5.7.44, guardar la conexión en `.env.testing` excluido de Git y verificar el destino antes de ejecutar la suite.
-- Trabajo asistido: configuración local de pruebas, exclusión de Git, retirada de las variables SQLite de PHPUnit, protección anterior a las migraciones y documentación. Creación y verificación de la base exclusiva de pruebas; sin migraciones, limpiezas ni tests en la base de desarrollo.
-- Corrección de salida de IA: PHPStan detectó que el resultado de `PDO::query()` podía ser `false`; se añadió su comprobación antes de llamar a `fetchColumn()` y se repitieron el análisis específico y la suite con éxito.
-- Resultado: 21 pruebas aprobadas, 3 omitidas por 2FA desactivado y 53 aserciones. El análisis general mantiene un error previo en `UserFactory::withTwoFactor()`, fuera del cambio solicitado.
-- Decisiones confirmadas por el usuario: nombre de la base, versión objetivo, archivo local de credenciales y prohibición de modificar la base de desarrollo mediante pruebas o migraciones. Revisión manual del resultado pendiente; no se atribuyen al usuario revisiones ni correcciones adicionales.
+## Herramientas de IA y herramientas de validación utilizadas
 
-No se registran credenciales ni contenido de archivos de entorno.
+- **Asistencia de IA:** Codex para analizar requisitos, proponer cambios, generar código y pruebas y mantener documentación. Laravel Boost como apoyo para consultar documentación, esquema, versión real de MySQL y datos mediante consultas de lectura; también se consultaron el código instalado y documentación oficial.
+- **Validación:** PHP/Artisan, Pest, Pint, PHPStan, TypeScript, scripts de formato y lint, compilación con Vite, Composer/npm, consultas SQL y revisión de diferencias con Git. Las respuestas HTTP se comprobaron por separado del intento de revisión visual con el navegador integrado.
 
-## 2026-10-16 — README y referencias del proyecto
+Los resultados concretos y las limitaciones de cada comprobación están en el registro de desarrollo. No se registran credenciales ni contenidos de archivos de entorno.
 
-- Petición del usuario: completar el README tras la revisión documental, corregir referencias en las instrucciones, añadir README y alcance a Git y crear un commit.
-- Trabajo asistido por Codex: instrucciones de instalación y arranque contrastadas con los scripts y ayudas locales; versiones reales; migraciones y seeder descritos únicamente para una base nueva; diagnóstico marcado pendiente. Referencias corregidas en `AGENTS.md` y en el alcance, conservando los requisitos de la empresa.
-- Verificación: Laravel Boost para versión MySQL y URL configurada; CLI para versiones, requisitos de plataforma, comandos, enlaces y diff. No se ejecutaron operaciones de escritura en MySQL ni se repitieron pruebas o compilaciones. No se detectaron nuevas correcciones de código en esta tarea.
-- El usuario autorizó el commit documental; la revisión manual del contenido y la instalación en otro equipo siguen pendientes. Se preservan fuera del commit los cambios previos de configuración y código de pruebas.
+## Partes del proyecto desarrolladas con asistencia de IA
 
-## 2026-10-16 — Corrección de la navegación de ajustes
+- Preparación del entorno MySQL y aislamiento de pruebas, incluida la protección anterior a las migraciones de tests.
+- Correcciones de la navegación de ajustes y de una factory del starter kit, con pruebas de regresión y sin ampliar la autenticación.
+- Configuración de GitHub Actions con un servicio MySQL y credenciales exclusivas de CI, revisión de instalación y documentación del proyecto.
+- Primera fase del modelo de datos: migraciones, modelos Eloquent, relaciones, enums, factories y tests de incidencias, logs y comentarios.
 
-- Petición del usuario: revisar el error de Wayfinder y, si `/settings` solo sirve para navegar, limitarlo a GET/HEAD conservando destino y comportamiento. Sin editar código generado o vendor, sin `any` ni ampliaciones de tipos para ocultar el error.
-- Trabajo asistido por Codex con las guías de Laravel, Wayfinder y pruebas: revisión de usos y del controlador instalado, cambio del registro de la ruta y pruebas de regresión. El controlador de redirección, la autenticación, el estado 302 y el destino relativo se conservan.
-- Causa confirmada: `Route::redirect` registraba también QUERY y la unión local de métodos de Wayfinder no lo admitía. Se corrigió el contrato de la ruta de navegación en el código fuente, sin cambiar dependencias; la regeneración y la comprobación de tipos completaron la corrección. Resultados de ejecución en `docs/development.md`.
-- La limitación a navegación responde a la instrucción explícita del usuario; revisión manual del resultado pendiente.
+CRUD, transiciones, controladores, seeders de incidencias, frontend del panel y diagnóstico de inconsistencias permanecen pendientes.
 
-## 2026-10-16 — Corrección de `UserFactory::withTwoFactor()`
+## Decisiones técnicas y manuales confirmadas por el usuario
 
-- El usuario pidió revisar referencias y eliminar el método si no tenía uso necesario, o implementar un estado real si debía conservarse, sin activar 2FA, ocultar errores o eliminar tests.
-- Se encontró una referencia en el test condicional de autenticación heredado. Codex conservó ese contrato e implementó un estado de factory con credenciales cifradas y confirmación, siguiendo las APIs de la versión instalada de Fortify. No se ejecuta la acción de activación de 2FA.
-- La prueba nueva usa `make()` para comprobar el estado sin ampliar el esquema ni habilitar la función. PHPStan y la suite pasan; resultados detallados en `docs/development.md`. No se modificaron exclusiones ni tests heredados para cambiar sus resultados.
-- Decisión basada en la referencia existente y en la alternativa autorizada por el usuario; revisión manual pendiente.
+- Laravel, MySQL, Inertia + React, TypeScript y Tailwind; identificadores y comentarios en inglés e interfaz y documentación en español. Desarrollo incremental, conservando la autenticación del starter kit sin ampliarla.
+- Pruebas exclusivamente en `prueba_optimaretail_test`, compatibles con MySQL 5.7, con credenciales locales en `.env.testing` excluido de Git. Se autorizaron migraciones normales en desarrollo tras comprobar destino y pendientes; siguen prohibidos allí los tests, la limpieza y los reinicios destructivos sin autorización expresa.
+- Para la navegación de ajustes, limitar la ruta a GET/HEAD conservando destino y comportamiento. Para `UserFactory`, se autorizó implementar un estado real si las referencias existentes justificaban conservarlo; Codex eligió esa alternativa tras encontrar su uso.
+- En el modelo de datos: estados y prioridades especificados por el usuario, persistencia VARCHAR, responsable como nombre opcional, metadata JSON nullable, valores auditados nullable y logs con solo `created_at`.
 
-## 2026-10-16 — Preparación de la base de desarrollo
+Los tamaños de campos, defaults, índices y política restrictiva de claves foráneas fueron decisiones de implementación de Codex, documentadas para revisión. No se consideran revisadas manualmente por el usuario. Tampoco se atribuyen al usuario comprobaciones visuales o de instalación limpia que no se hayan realizado.
 
-- El usuario autorizó expresamente las migraciones normales en `prueba_optimaretail`, previa comprobación de conexión y pendientes, sin reinicios ni borrado de datos. Esta decisión sustituye la prohibición anterior de migrar esa base; no cambia el aislamiento exclusivo de los tests en `prueba_optimaretail_test`.
-- Trabajo asistido por Codex con las guías de Laravel y navegador: consultas de lectura con Boost, revisión de las tres migraciones existentes, ejecución de `php artisan migrate`, comprobación posterior de tablas y pendientes, y actualización de README e instrucciones. No se generó código ni se modificaron requisitos o dependencias.
-- Resultado: tres migraciones aplicadas, nueve tablas InnoDB y ningún pendiente en MySQL 5.7.44. Confirmada por separado la base efectiva de pruebas. Detalles en `docs/development.md`, sin credenciales.
-- Limitación real: el navegador integrado falló con `Cannot redefine property: process`; la alternativa de control de Safari no obtuvo autorización. La raíz y `/login` responden HTTP 200, pero la revisión visual sigue pendiente. No se atribuyen al usuario comprobaciones manuales no realizadas.
+## Errores detectados en el código asistido por IA y correcciones realizadas
 
-## 2026-10-16 — Preparación previa al desarrollo funcional
+Se distinguen los defectos heredados del starter kit de los errores introducidos durante el trabajo asistido:
 
-- Petición del usuario: resolver la preparación de GitHub Actions con MySQL 5.7 y credenciales propias de CI, comprobar la carga en navegador, revisar el aviso de fuentes y la instalación documentada; conservar la autenticación, sin añadir dependencias, funcionalidades de incidencias ni commits.
-- Trabajo asistido por Codex con las guías de Laravel, pruebas y navegador: configuración del servicio MySQL efímero, generación de `.env.testing` desde la plantilla pública, comprobación de la base efectiva antes de migrar y actualización del README. Consultadas la documentación de Laravel con Boost, la documentación oficial de servicios de GitHub Actions y la implementación instalada del plugin de fuentes.
-- Decisión dentro de las condiciones del usuario: conservar el aviso de `fontaine`; la fuente principal se compila y las alternativas requieren añadir una dependencia o desactivar una optimización opcional para silenciarlo. No se altera la autenticación.
-- Verificaciones reales: validación del workflow y ejecución aislada de su generación de entorno; suite local, análisis, formato, tipos y build correctos. Las simulaciones de instalación de dependencias se hicieron en el entorno existente, no en una instalación limpia. Resultados y comandos en `docs/development.md`.
-- Limitaciones: el navegador volvió a fallar con `Cannot redefine property: process`; solo se acredita HTTP 200 en raíz y login, no revisión visual. No se ejecutó GitHub Actions ni su contenedor local; el daemon de Docker no está activo. Pendientes la ejecución remota y la instalación desde cero. No se atribuyen al usuario revisiones manuales; no corresponde entrada de programación en `ai-process/prompts.md`.
+- **PDO:** PHPStan detectó que el código generado usaba el resultado de `PDO::query()` sin comprobar su posible valor `false`. Se añadió la comprobación antes de llamar a `fetchColumn()`.
+- **Wayfinder:** la ruta heredada de redirección aceptaba QUERY, ausente del tipo de métodos generado. Se corrigió la definición de la ruta para navegación GET/HEAD y se regeneró Wayfinder, sin editar archivos generados ni ampliar tipos para ocultar el fallo.
+- **UserFactory:** el método heredado `withTwoFactor()` estaba vacío pese a declarar un retorno y seguía referenciado. Se implementó un estado con credenciales cifradas y confirmación, sin habilitar 2FA ni eliminar el test que lo utilizaba.
+- **Tests del modelo de datos:** se corrigieron un cierre sobrante y comparaciones con microsegundos frente a timestamps de segundos, ajustando el reloj de prueba con `freezeSecond()`.
 
-## 2026-10-16 — Modelo de datos de incidencias
+## Referencias a los registros detallados
 
-- Petición del usuario: implementar la primera fase de persistencia y pruebas, sin operaciones de negocio ni frontend. Resumen y decisiones de programación en `ai-process/prompts.md`.
-- Trabajo asistido por Codex con las guías de Laravel y pruebas: migraciones, modelos, relaciones, enums, factories, tests y documentación. Boost proporcionó esquema actual, versión real MySQL y documentación Laravel 13 de casts y claves foráneas; se consultó también el código instalado para timestamps. Los generadores Artisan crearon los archivos base.
-- Decisiones de implementación: límites de texto, defaults, índices ajustados a consultas previstas y FKs restrictivas, manteniendo un modelo Eloquent sencillo. El usuario especificó estados/prioridades, VARCHAR, responsable textual opcional, nulabilidad y timestamps del log; no se le atribuye revisión manual de las decisiones restantes.
-- Errores reales de la salida de IA: cierre sobrante en el test nuevo y comparación inicial con microsegundos frente a timestamps persistidos con segundos. Corregidos el cierre y el reloj de prueba mediante `freezeSecond()`. Las pruebas focalizadas pasan después de esas correcciones; resultados en `docs/development.md`.
-- Antes de probar se comprobaron ambas conexiones efectivas contra la base exclusiva `prueba_optimaretail_test`. Sin operaciones de escritura en la base de desarrollo, cambios de dependencias ni commit. Aplicación de las migraciones en desarrollo y revisión manual pendientes.
+- [Registro de prompts](prompts.md): peticiones cronológicas de programación, correcciones, refactorizaciones y arquitectura, con decisiones y revisiones pendientes.
+- [Registro de desarrollo](../docs/development.md): configuración, verificaciones, resultados operativos, errores encontrados y limitaciones de cada fase, incluida la revisión visual, la instalación limpia y la ejecución remota de CI pendientes.
+- [README](../README.md): instalación, estado funcional, decisiones del modelo de datos y comandos disponibles.
+- [Alcance de la prueba](technical-assessment-scope.md): requisitos y decisiones del proyecto, diferenciados de la implementación.
