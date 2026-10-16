@@ -15,8 +15,9 @@ Los resultados concretos y las limitaciones de cada comprobación están en el r
 - Correcciones de la navegación de ajustes y de una factory del starter kit, con pruebas de regresión y sin ampliar la autenticación.
 - Configuración de GitHub Actions con un servicio MySQL y credenciales exclusivas de CI, revisión de instalación y documentación del proyecto.
 - Primera fase del modelo de datos: migraciones, modelos Eloquent, relaciones, enums, factories y tests de incidencias, logs y comentarios.
+- Lógica interna de transiciones: reglas centralizadas, acción de cambio de estado con bloqueo y auditoría transaccional y tests de integridad, estados desactualizados y rollback.
 
-CRUD, transiciones, controladores, seeders de incidencias, frontend del panel y diagnóstico de inconsistencias permanecen pendientes.
+CRUD, controladores, seeders de incidencias, frontend del panel y diagnóstico de inconsistencias permanecen pendientes.
 
 ## Decisiones técnicas y manuales confirmadas por el usuario
 
@@ -24,6 +25,7 @@ CRUD, transiciones, controladores, seeders de incidencias, frontend del panel y 
 - Pruebas exclusivamente en `prueba_optimaretail_test`, compatibles con MySQL 5.7, con credenciales locales en `.env.testing` excluido de Git. Se autorizaron migraciones normales en desarrollo tras comprobar destino y pendientes; siguen prohibidos allí los tests, la limpieza y los reinicios destructivos sin autorización expresa.
 - Para la navegación de ajustes, limitar la ruta a GET/HEAD conservando destino y comportamiento. Para `UserFactory`, se autorizó implementar un estado real si las referencias existentes justificaban conservarlo; Codex eligió esa alternativa tras encontrar su uso.
 - En el modelo de datos: estados y prioridades especificados por el usuario, persistencia VARCHAR, responsable como nombre opcional, metadata JSON nullable, valores auditados nullable y logs con solo `created_at`.
+- En las transiciones: únicamente abierta a revisión y revisión a bloqueada o resuelta, rechazando repeticiones; bloqueo de fila y auditoría en una misma transacción, con propagación de errores y rollback. La validación del nombre del actor y el contrato de retorno son decisiones de implementación pendientes de revisión manual.
 
 Los tamaños de campos, defaults, índices y política restrictiva de claves foráneas fueron decisiones de implementación de Codex, documentadas para revisión. No se consideran revisadas manualmente por el usuario. Tampoco se atribuyen al usuario comprobaciones visuales o de instalación limpia que no se hayan realizado.
 
@@ -35,6 +37,7 @@ Se distinguen los defectos heredados del starter kit de los errores introducidos
 - **Wayfinder:** la ruta heredada de redirección aceptaba QUERY, ausente del tipo de métodos generado. Se corrigió la definición de la ruta para navegación GET/HEAD y se regeneró Wayfinder, sin editar archivos generados ni ampliar tipos para ocultar el fallo.
 - **UserFactory:** el método heredado `withTwoFactor()` estaba vacío pese a declarar un retorno y seguía referenciado. Se implementó un estado con credenciales cifradas y confirmación, sin habilitar 2FA ni eliminar el test que lo utilizaba.
 - **Tests del modelo de datos:** se corrigieron un cierre sobrante y comparaciones con microsegundos frente a timestamps de segundos, ajustando el reloj de prueba con `freezeSecond()`.
+- **Transiciones:** se corrigió la consulta para obtener un único modelo sin ambigüedad de tipos y se tomaron los snapshots de pruebas desde MySQL para comparar atributos con el mismo orden, sin ocultar errores del análisis ni debilitar las aserciones.
 
 ## Referencias a los registros detallados
 

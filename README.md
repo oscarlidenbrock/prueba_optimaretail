@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Está implementado el modelo de datos con migraciones, modelos Eloquent y enums; las operaciones y pantallas de incidencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos y la acción interna de cambio de estado con auditoría transaccional; las demás operaciones y las pantallas de incidencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -163,7 +163,7 @@ El plugin de fuentes de Laravel Vite intenta generar fuentes de sustitución con
 
 Pendiente de implementación. Todavía no existen el comando o servicio de diagnóstico, sus consultas SQL/Eloquent, la opción `dry-run` ni los tres casos de ejemplo exigidos: resolución sin log, estado distinto del último cambio y log duplicado o incoherente. No hay un comando de diagnóstico ejecutable que pueda documentarse aún.
 
-Al implementar esa tarea se añadirán aquí los comandos reales, las consultas, su justificación, la política de reparación y los casos que requieren revisión manual. El modelo de datos de incidencias, logs y comentarios ya existe; sus operaciones de aplicación todavía están pendientes.
+Al implementar esa tarea se añadirán aquí los comandos reales, las consultas, su justificación, la política de reparación y los casos que requieren revisión manual. Ya existen el modelo de datos y la acción interna de cambio de estado; el diagnóstico todavía no está implementado.
 
 ## Decisiones técnicas
 
@@ -187,7 +187,7 @@ Los campos son obligatorios salvo los marcados nullable y los timestamps convenc
 
 `IncidentStatus` centraliza `open`, `in_review`, `blocked` y `resolved`; `IncidentPriority`, `low`, `medium` y `high`. Los casts Eloquent convierten los strings almacenados en enums PHP. No se utilizan ENUM nativos ni CHECK como mecanismo de validación en MySQL 5.7; la futura validación de peticiones deberá respetar los enums y los límites del esquema. Los defaults de las migraciones son literales para conservar su independencia respecto a futuras modificaciones del código de los enums.
 
-`assigned_to` contiene un nombre opcional, sin relación con `users`. Solicitante, responsable y autores son nombres, sin implicar una identidad autenticada. `metadata` se convierte a array; `old_value` y `new_value` permanecen como texto nullable, porque su significado dependerá de `action`. El vocabulario de acciones y el registro automático de cambios críticos se definirán al implementar esas operaciones; los datos de las factories solo sirven para preparar pruebas.
+`assigned_to` contiene un nombre opcional, sin relación con `users`. Solicitante, responsable y autores son nombres, sin implicar una identidad autenticada. `metadata` se convierte a array; `old_value` y `new_value` permanecen como texto nullable, porque su significado depende de `action`. Está implementada la acción auditada `status_changed`, descrita abajo; las demás acciones críticas se definirán al implementar sus operaciones. Los datos de las factories solo sirven para preparar pruebas.
 
 `Incident` tiene relaciones `logs()` y `comments()` de uno a muchos, y ambos modelos relacionados tienen `incident()`. Las claves foráneas restringen borrados y cambios del ID del padre para preservar historial y comentarios. Las relaciones se ordenan por `created_at` y después por `id` para resolver empates.
 
@@ -197,9 +197,29 @@ Los campos son obligatorios salvo los marcados nullable y los timestamps convenc
 - `incidents(status, created_at)` y `incidents(priority, created_at)`: filtro por estado o prioridad con orden por fecha.
 - `incident_logs(incident_id, created_at)` e `incident_comments(incident_id, created_at)`: historial y comentarios de una incidencia en orden temporal. Estos índices también soportan las claves foráneas, sin otro índice redundante en `incident_id`. InnoDB incorpora la clave primaria a los índices secundarios, permitiendo desempatar por `id`.
 
-La selección de índices se revisará al implementar y medir las consultas reales. No se implementan aún CRUD, transiciones, controladores, seeders ni frontend. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+La selección de índices se revisará al implementar y medir las consultas reales. No se implementan aún CRUD, controladores, seeders ni frontend de incidencias. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+
+## Transiciones de estado
+
+`IncidentStatus::canTransitionTo()` centraliza únicamente estos cambios:
+
+| Estado actual | Nuevo estado |
+| ------------- | ------------ |
+| `open`        | `in_review`  |
+| `in_review`   | `blocked`    |
+| `in_review`   | `resolved`   |
+
+Se rechazan los demás cambios, incluido repetir el estado actual. `blocked` y `resolved` no tienen salidas; no se implementa reapertura.
+
+`ChangeIncidentStatus::handle(Incident $incident, IncidentStatus $newStatus, string $actorName): Incident` recorta espacios del nombre del actor y exige entre 1 y 120 caracteres. El nombre suministrado se registra como actor, sin presentarlo como identidad autenticada. La acción abre `DB::transaction()`, vuelve a consultar la incidencia por ID con `lockForUpdate()` y solo entonces valida la transición contra el estado actual de MySQL.
+
+La actualización y el log se guardan juntos. El log contiene `action = status_changed`, el estado anterior real, el nuevo, el actor y `created_at` automático en UTC. Los errores de transición y actor se propagan como `ValidationException` con claves `status` y `actor_name`; los fallos de persistencia se propagan y provocan rollback. Una cancelación de escritura por eventos Eloquent se convierte en error explícito para impedir una actualización sin log. Si la incidencia ya no existe, se propaga `ModelNotFoundException`.
+
+La acción devuelve una instancia consultada de nuevo; no actualiza la instancia original del llamador ni sus relaciones cargadas. Las peticiones repetidas se rechazan sin duplicar el historial. El bloqueo de fila y la validación dentro de la transacción evitan decidir con un estado obsoleto. Los tests cubren instancias desactualizadas; no se ha realizado una prueba con conexiones concurrentes independientes. No hay todavía rutas ni interfaz para invocar la acción.
 
 ## Verificación y limitaciones
+
+Fase de transiciones (16 de octubre de 2026): 27 pruebas focalizadas y 111 aserciones correctas con `php artisan test --compact tests/Feature/ChangeIncidentStatusTest.php`; suite completa con 76 aprobadas, 3 omitidas por 2FA desactivado y 264 aserciones. Ambas conexiones efectivas se verificaron como MySQL `prueba_optimaretail_test`, servidor 5.7.44, antes de probar. Pint y PHPStan del código cambiado correctos; sin comprobaciones de frontend ni operaciones sobre la base de desarrollo en esta fase.
 
 Fase del modelo de datos (16 de octubre de 2026): `php artisan test --compact tests/Feature/IncidentModelTest.php` pasa con 19 pruebas y 65 aserciones. Antes de ejecutarlo se verificaron ambas conexiones efectivas (lectura y escritura) como MySQL `prueba_optimaretail_test`, servidor 5.7.44. Pasan Pint y PHPStan sobre el código nuevo. No se repitieron la suite completa ni los checks de frontend en esta fase; los resultados siguientes corresponden a comprobaciones anteriores.
 
