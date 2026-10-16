@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend, la pantalla principal React con listado/filtros/creación y el detalle con historial, comentarios y cambios de estado confirmados. Seeders y diagnóstico de inconsistencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend, la pantalla principal React con listado/filtros/creación, el detalle operativo y un diagnóstico de inconsistencias de solo lectura con fixtures independientes. Los datos normales de demostración de incidencias y las reparaciones siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -92,7 +92,7 @@ En una instalación nueva ya migrada, el seeder actual puede ejecutarse una vez:
 php artisan db:seed --no-interaction
 ```
 
-Crea únicamente el usuario de demostración del starter kit: correo `test@example.com` y contraseña `password`. Son datos sintéticos de demostración, no credenciales de MySQL. Ejecutarlo de nuevo puede fallar porque el correo ya existe. No hay todavía seeders de incidencias ni fixtures inconsistentes.
+Crea únicamente el usuario de demostración del starter kit: correo `test@example.com` y contraseña `password`. Son datos sintéticos de demostración, no credenciales de MySQL. Ejecutarlo de nuevo puede fallar porque el correo ya existe. No hay todavía un seeder normal de incidencias. El seeder independiente de inconsistencias no se llama desde este flujo; consultar [diagnóstico](#diagnóstico-de-inconsistencias) para su ejecución explícita.
 
 La autenticación procede del starter kit y no es obligatoria para la prueba técnica. El panel heredado requiere iniciar sesión.
 
@@ -161,9 +161,70 @@ El plugin de fuentes de Laravel Vite intenta generar fuentes de sustitución con
 
 ## Diagnóstico de inconsistencias
 
-Pendiente de implementación. Todavía no existen el comando o servicio de diagnóstico, sus consultas SQL/Eloquent, la opción `dry-run` ni los tres casos de ejemplo exigidos: resolución sin log, estado distinto del último cambio y log duplicado o incoherente. No hay un comando de diagnóstico ejecutable que pueda documentarse aún.
+### Comando de solo lectura
 
-Al implementar esa tarea se añadirán aquí los comandos reales, las consultas, su justificación, la política de reparación y los casos que requieren revisión manual. Ya existen el modelo de datos, el backend de creación/listado y la acción interna de cambio de estado; el diagnóstico todavía no está implementado.
+```bash
+php artisan incidents:diagnose --dry-run --no-interaction
+```
+
+Revisa la base efectiva del entorno seleccionado antes de ejecutarlo. Sin `--dry-run` el comportamiento es idéntico: **solo SELECT**, sin reparar, cambiar estados, borrar logs ni escribir marcas. Revisa todas las incidencias, no solo las simuladas. Código de salida **0** si no hay hallazgos y **1** si los hay; errores de conexión o ejecución también deben investigarse, no interpretarse como datos correctos. Cada hallazgo identifica incidencia, código de problema y evidencia; cuando hay logs, incluye sus IDs, valores, actor y fecha UTC. El resumen pide revisión manual sin dar autoridad automática al estado ni al historial.
+
+### Tres casos simulados, únicamente bajo ejecución explícita
+
+Después de verificar `prueba_optimaretail_test` según la sección de pruebas, se pueden generar los ejemplos en esa base:
+
+```bash
+php artisan db:seed --env=testing --class=InconsistentIncidentSeeder --no-interaction
+php artisan incidents:diagnose --env=testing --dry-run --no-interaction
+```
+
+**No ejecutar el seeder sobre `prueba_optimaretail` sin autorización adicional.** No se carga desde `DatabaseSeeder`, instalaciones habituales ni el comando de diagnóstico. Crea solo tres incidencias y tres logs en total, sin usuarios o comentarios nuevos y sin modificar incidencias previas:
+
+| Caso                              | Estado      | Evidencia simulada          | Hallazgo esperado                                     |
+| --------------------------------- | ----------- | --------------------------- | ----------------------------------------------------- |
+| Resuelta sin log de resolución    | `resolved`  | Sin logs                    | `resolved_without_resolution_log`                     |
+| Estado distinto del último cambio | `blocked`   | Un log `open → in_review`   | `status_mismatch`                                     |
+| Log de estado duplicado           | `in_review` | Dos logs `open → in_review` | `incoherent_status_log`, con referencia al primer log |
+
+Títulos con prefijo `[SIMULACIÓN]`, descripción con identificador estable `diagnóstico:v1:<caso>`, solicitante/actor «Simulación de diagnóstico» y metadata `simulation: true`/`fixture` en los logs distinguen los ejemplos. Los actores son identidades artificiales y las fechas son de generación, no hechos históricos reales. La ausencia de log en el primer caso es deliberada.
+
+La creación completa se envuelve en una transacción. `firstOrCreate` busca la descripción identificadora y el solicitante; solo crea logs cuando la incidencia acaba de crearse. Repetirlo conserva IDs, datos y timestamps, incluso si después alguien ha revisado el ejemplo; no lo restablece ni lo repara. Un título coincidente en otra incidencia no permite reutilizarla ni modificarla. No cambiar los identificadores reservados de las fixtures si se quiere mantener esa repetibilidad. Ejecutar secuencialmente: sin una clave única de fixture en el esquema, no se garantiza deduplicación entre dos ejecuciones simultáneas.
+
+### Consultas y razonamiento
+
+El comando utiliza esta consulta Eloquent por lotes de 100 incidencias, con eager loading y sin N+1:
+
+```php
+Incident::query()->select(['id', 'status'])
+    ->with(['logs' => fn ($query) => $query->where('action', 'status_changed')])
+    ->chunkById(100, $inspectIncidents);
+```
+
+`$inspectIncidents` representa el callback de inspección del comando. La relación `logs()` impone `created_at ASC, id ASC`; su último elemento equivale a esta consulta SQL de referencia por incidencia:
+
+```sql
+SELECT id, old_value, new_value, user_name, created_at
+FROM incident_logs
+WHERE incident_id = ? AND action = 'status_changed'
+ORDER BY created_at DESC, id DESC
+LIMIT 1;
+```
+
+La lectura agrupada real equivale a `SELECT * FROM incident_logs WHERE incident_id IN (...) AND action = ? ORDER BY created_at ASC, id ASC`. El filtro por acción excluye comentarios y otras actividades. Los índices existentes `incident_id, created_at` soportan acceso y orden; no se añaden índices sin medición. No se usan funciones de ventana, CTE ni características JSON específicas: las consultas se han probado en MySQL 5.7.44.
+
+Sobre esos resultados se aplican tres comprobaciones:
+
+1. **`resolved_without_resolution_log`:** estado actual `resolved` y ningún log `status_changed` con `new_value = resolved`. La existencia de ese log no prueba que su transición fuese válida: esa validación pertenece al tercer control.
+2. **`status_mismatch`:** existe último cambio y su `new_value` no coincide exactamente con el estado persistido. Empates de fecha se resuelven por ID. El estado se lee en bruto para que un identificador corrupto no impida ejecutar el diagnóstico.
+3. **`incoherent_status_log`:** se recorren los cambios cronológicamente, validando valores con el enum y su `canTransitionTo()`. Se informa de pares anterior/nuevo repetidos, valores nulos/desconocidos, transiciones prohibidas o de una discontinuidad entre el valor nuevo de un log y el anterior del siguiente. Por log se prioriza duplicado, transición inválida y después discontinuidad para no repetir la misma evidencia; el par repetido referencia su primera aparición, aunque fecha o actor difieran.
+
+### Limitaciones y revisión manual
+
+- Los hallazgos señalan contradicciones o ausencia de evidencia, no una reparación inequívoca. Contrastar IDs, actores, fechas y registros disponibles; no inventar logs, fechas ni autores, ni asumir que el estado actual o el último log son correctos.
+- La definición de duplicado se basa en la matriz actual sin reapertura ni ciclos. Si se amplía esa política habrá que revisar el detector; compartir valores no bastaría para declarar duplicación en un flujo con ciclos.
+- No acredita la integridad completa del historial: no exige un log de creación ni el primer cambio desde `open`. Una incidencia no resuelta sin logs no se marca por sí sola. No valida actores, metadata o autenticidad de timestamps; tampoco examina otras acciones o comentarios.
+- No se toma un snapshot transaccional global ni se bloquean operaciones. Cambios concurrentes entre las consultas pueden producir evidencia transitoria; repetir en un periodo estable antes de concluir. El uso de memoria queda acotado por lotes de incidencias, pero se carga el historial de cambios completo de cada lote.
+- No hay reparación, borrado, corrección de estado ni opción de escritura. Esta fase entrega simulación y diagnóstico; el mecanismo de reparación y su política quedan pendientes de otra tarea.
 
 ## Decisiones técnicas
 
@@ -197,7 +258,7 @@ Los campos son obligatorios salvo los marcados nullable y los timestamps convenc
 - `incidents(status, created_at)` y `incidents(priority, created_at)`: filtro por estado o prioridad con orden por fecha.
 - `incident_logs(incident_id, created_at)` e `incident_comments(incident_id, created_at)`: historial y comentarios de una incidencia en orden temporal. Estos índices también soportan las claves foráneas, sin otro índice redundante en `incident_id`. InnoDB incorpora la clave primaria a los índices secundarios, permitiendo desempatar por `id`.
 
-La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP y pantallas de creación, listado, detalle, comentarios y cambio de estado; edición, eliminación y seeders siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP y pantallas de creación, listado, detalle, comentarios y cambio de estado, junto con fixtures de diagnóstico independientes; edición, eliminación y seeders normales de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
 
 ## Backend HTTP de incidencias
 
@@ -283,6 +344,8 @@ Así se conserva el flujo de errores de formularios de Inertia sin usar un 409 q
 Se mantienen los middleware `web`, `auth` y `verified` del starter kit. No existen roles ni propiedad de incidencia que restrinjan a otros operadores autenticados. El modelo `User` actual no implementa `MustVerifyEmail`: conservar `verified` no activa una función nueva de verificación. El nombre autenticado debe respetar el límite de 120 caracteres del log; la acción devuelve error de validación si no lo cumple, sin truncarlo ni sustituirlo por datos del cliente. Los tests de integración comprueban el detalle actualizado después del PATCH y de un conflicto; la interacción React en navegador sigue pendiente.
 
 ## Verificación y limitaciones
+
+Diagnóstico inicial (16 de octubre de 2026): 16 pruebas focalizadas aprobadas y 69 aserciones con `php artisan test --compact tests/Feature/IncidentDiagnosisTest.php`, tras comprobar ambas conexiones efectivas como MySQL `prueba_optimaretail_test`, servidor 5.7.44. Pint, PHPStan focalizado y ayuda del comando correctos. Incluye generación/repetición segura de ejemplos, datos válidos, tres clases de hallazgos, fecha/ID, exclusión de otras acciones y comprobación de solo SELECT/snapshots intactos en ejecución repetida. No se ejecutaron el seeder en desarrollo, suite completa ni checks frontend.
 
 Detalle React (16 de octubre de 2026): TypeScript, formato/lint focalizado, build, Pint y PHPStan del controlador correctos; cinco rutas y middleware conservados. Tras verificar lectura/escritura como MySQL `prueba_optimaretail_test` (5.7.44), pruebas afectadas: 93 aprobadas, 448 aserciones. Suite completa: 169 aprobadas, 3 omitidas, 712 aserciones. Sin operaciones en desarrollo. La revisión visual sigue bloqueada por `Cannot redefine property: process`; persiste el aviso previo de `fontaine` sin cambios de dependencias.
 
