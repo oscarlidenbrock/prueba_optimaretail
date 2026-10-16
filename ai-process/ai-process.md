@@ -18,10 +18,11 @@ Los resultados concretos y las limitaciones de cada comprobación están en el r
 - Lógica interna de transiciones: reglas centralizadas, acción de cambio de estado con bloqueo y auditoría transaccional y tests de integridad, estados desactualizados y rollback.
 - Backend de creación y listado: controlador, Form Requests, rutas autenticadas, filtros Eloquent y pruebas HTTP, con contrato Inertia reutilizado por la pantalla principal.
 - Endpoint HTTP de cambio de estado: reutilización de la acción transaccional, actor autenticado y distinción entre validación y conflicto, con respuestas y flash compatibles con Inertia.
-- Consulta de detalle e historial y creación de comentarios: relaciones ordenadas, contrato Inertia sin pantalla React, validación y autor autenticado, con pruebas HTTP.
+- Consulta de detalle e historial y creación de comentarios: relaciones ordenadas, contrato Inertia, validación y autor autenticado, con pruebas HTTP.
 - Pantalla principal React: componentes tipados, tabla/tarjetas, filtros y paginación Inertia, formulario de creación y navegación Wayfinder, reutilizando layout, componentes y confirmaciones del starter kit.
+- Detalle React: información completa, línea temporal, comentarios y acciones permitidas por el servidor con confirmación, errores y fechas locales. Ajustes mínimos del contrato y redirecciones para integrar la pantalla sin duplicar la lógica transaccional.
 
-Edición, eliminación, seeders de incidencias, pantalla de detalle, comentarios y cambios de estado desde la interfaz y diagnóstico de inconsistencias permanecen pendientes.
+Edición, eliminación, seeders de incidencias y diagnóstico de inconsistencias permanecen pendientes. Las pantallas implementadas todavía requieren revisión visual/interactiva.
 
 ## Decisiones técnicas y manuales confirmadas por el usuario
 
@@ -39,6 +40,8 @@ Para detalle y comentarios, el usuario confirmó los órdenes temporales, el aut
 
 Para la pantalla principal, el usuario solicitó React 19, TypeScript y Tailwind 4, reutilizar el starter kit y el backend y limitar la interfaz a listado, filtros y creación. El diseño concreto, los breakpoints y los componentes extraídos son decisiones de implementación pendientes de revisión visual/manual; no se ha atribuido esa revisión al usuario.
 
+En el detalle, se solicitaron historial, comentarios, acciones autorizadas por el servidor, confirmación de bloqueo/resolución y fechas españolas con distinción UTC/local. Se justificaron antes de implementar la prop de transiciones y la redirección al detalle; estos ajustes y el diseño concreto quedan pendientes de revisión manual del usuario.
+
 ## Errores detectados en el código asistido por IA y correcciones realizadas
 
 Se distinguen los defectos heredados del starter kit de los errores introducidos durante el trabajo asistido:
@@ -49,6 +52,7 @@ Se distinguen los defectos heredados del starter kit de los errores introducidos
 - **Tests del modelo de datos:** se corrigieron un cierre sobrante y comparaciones con microsegundos frente a timestamps de segundos, ajustando el reloj de prueba con `freezeSecond()`.
 - **Transiciones:** se corrigió la consulta para obtener un único modelo sin ambigüedad de tipos y se tomaron los snapshots de pruebas desde MySQL para comparar atributos con el mismo orden, sin ocultar errores del análisis ni debilitar las aserciones.
 - **Creación/listado:** se corrigieron las cabeceras de versión de assets de los tests Inertia y la búsqueda literal de caracteres especiales en MySQL 5.7, sin desactivar middleware ni debilitar comprobaciones. Detalles y resultados en el registro de desarrollo.
+- **Integración del detalle:** el test nuevo consumía los datos temporales al consultar el flash antes de seguir la redirección. Se corrigió la prueba para verificar flash y errores en la respuesta final, conservando sus aserciones y sin cambiar el comportamiento de sesión de la aplicación.
 
 ## Referencias a los registros detallados
 

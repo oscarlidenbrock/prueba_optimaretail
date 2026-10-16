@@ -68,6 +68,51 @@ test('detail orders logs newest first and comments oldest first with ID tie brea
     expect(array_column($response->json('props.incident.comments'), 'id'))->toBe([$oldComment->id, $tiedComment->id, $newComment->id]);
 });
 
+test('detail exposes only transitions allowed by the current server status', function (string $status, array $allowed) {
+    $this->actingAs(User::factory()->create());
+    $incident = Incident::factory()->create(['status' => $status]);
+
+    $this->get(route('incidents.show', $incident), incidentDetailHeaders())->assertOk()
+        ->assertJsonPath('props.allowedTransitions', $allowed);
+})->with([
+    'open' => ['open', ['in_review']],
+    'review' => ['in_review', ['blocked', 'resolved']],
+    'blocked' => ['blocked', []],
+    'resolved' => ['resolved', []],
+]);
+
+test('status changes return refreshed detail and updated allowed transitions', function () {
+    $this->actingAs(User::factory()->create(['name' => 'Operator']));
+    $incident = Incident::factory()->create();
+
+    $this->patch(route('incidents.status.update', $incident), ['status' => 'in_review'], incidentDetailHeaders())
+        ->assertRedirect(route('incidents.show', $incident));
+
+    $this->get(route('incidents.show', $incident), incidentDetailHeaders())->assertOk()
+        ->assertJsonPath('props.incident.status', 'in_review')
+        ->assertJsonPath('props.allowedTransitions', ['blocked', 'resolved'])
+        ->assertJsonCount(1, 'props.incident.logs')
+        ->assertJsonPath('props.incident.logs.0.user_name', 'Operator');
+});
+
+test('stale status conflicts return refreshed detail with scoped errors and authoritative actions', function () {
+    $this->actingAs(User::factory()->create());
+    $incident = Incident::factory()->create(['status' => 'resolved']);
+
+    $this->patch(route('incidents.status.update', $incident), ['status' => 'blocked'], [
+        ...incidentDetailHeaders(), 'X-Inertia-Error-Bag' => 'statusChange',
+    ])->assertRedirect(route('incidents.show', $incident));
+
+    $this->get(route('incidents.show', $incident), [
+        ...incidentDetailHeaders(), 'X-Inertia-Error-Bag' => 'statusChange',
+    ])->assertOk()->assertJsonPath('props.incident.status', 'resolved')
+        ->assertJsonPath('flash.toast.code', 'incident_status_conflict')
+        ->assertJsonPath('props.allowedTransitions', [])
+        ->assertJsonPath('props.errors', ['statusChange' => ['status' => 'El cambio de estado solicitado no está permitido para el estado actual de la incidencia.']]);
+
+    $this->assertDatabaseCount('incident_logs', 0);
+});
+
 test('detail supports empty history and comments and an optional assignee', function () {
     $this->actingAs(User::factory()->unverified()->create());
     $incident = Incident::factory()->create(['assigned_to' => null]);

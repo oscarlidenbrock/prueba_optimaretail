@@ -1,6 +1,6 @@
 # Panel operativo de incidencias
 
-Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend y la pantalla principal React con listado, filtros y creación. La pantalla de detalle, los comentarios y los cambios de estado desde la interfaz siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
+Aplicación para consultar y gestionar incidencias, sus estados, comentarios e historial. Están implementados el modelo de datos, el backend, la pantalla principal React con listado/filtros/creación y el detalle con historial, comentarios y cambios de estado confirmados. Seeders y diagnóstico de inconsistencias siguen pendientes. Se conservan las pantallas y la autenticación del starter kit.
 
 Los requisitos están en [ai-process/technical-assessment-scope.md](ai-process/technical-assessment-scope.md), la fuente original en [docs/prueba_tecnica_mid_senior.pdf](docs/prueba_tecnica_mid_senior.pdf) y el progreso en [docs/development.md](docs/development.md). El uso de IA se documenta en [ai-process/ai-process.md](ai-process/ai-process.md) y las peticiones en [ai-process/prompts.md](ai-process/prompts.md).
 
@@ -197,7 +197,7 @@ Los campos son obligatorios salvo los marcados nullable y los timestamps convenc
 - `incidents(status, created_at)` y `incidents(priority, created_at)`: filtro por estado o prioridad con orden por fecha.
 - `incident_logs(incident_id, created_at)` e `incident_comments(incident_id, created_at)`: historial y comentarios de una incidencia en orden temporal. Estos índices también soportan las claves foráneas, sin otro índice redundante en `incident_id`. InnoDB incorpora la clave primaria a los índices secundarios, permitiendo desempatar por `id`.
 
-La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP de creación, listado, detalle, comentarios y cambio de estado y la pantalla principal de listado/creación; edición, eliminación, seeders y el resto de la interfaz de incidencias siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
+La selección de índices se revisará al medir las consultas reales. Se han implementado las operaciones HTTP y pantallas de creación, listado, detalle, comentarios y cambio de estado; edición, eliminación y seeders siguen pendientes. Las nuevas migraciones solo se han ejecutado en la base de pruebas; su aplicación en desarrollo queda pendiente del procedimiento de comprobación descrito en instalación. Los métodos `down()` eliminan las tablas y sus datos: no deben usarse como limpieza de desarrollo.
 
 ## Backend HTTP de incidencias
 
@@ -223,6 +223,8 @@ El listado ordena por `created_at DESC, id DESC`, pagina de 15 en 15 y conserva 
 
 GET `incidents.show` prepara el componente Inertia `incidents/show` con una prop `incident`: todos los campos de la incidencia y las colecciones anidadas `logs` y `comments`, sin paginación en este detalle. Los estados y prioridades se serializan con sus identificadores ingleses; las fechas, como ISO 8601 en UTC. Se incluyen todos los campos persistidos de logs (incluido `metadata` como estructura JSON o null, y valores anterior/nuevo nullable) y comentarios. Las colecciones vacías son arrays vacíos. Se cargan exclusivamente las relaciones de la incidencia consultada.
 
+La prop adicional `allowedTransitions` contiene los estados de destino permitidos por `IncidentStatus::canTransitionTo()` para el estado actual. React utiliza esa lista, sin mantener una matriz propia; el endpoint sigue revalidando bajo bloqueo antes de escribir. Una prop vacía desactiva las acciones, no significa que el frontend pueda autorizar otras.
+
 El historial se ordena por `created_at DESC, id DESC`. La consulta usa `reorder()` para sustituir el orden ascendente predeterminado de la relación sin modificarla globalmente. Los comentarios mantienen `created_at ASC, id ASC`.
 
 POST `incidents.comments.store` recibe `body`: texto obligatorio, no vacío tras el recorte de espacios habitual de Laravel y máximo de 10000 caracteres, compatible con TEXT y `utf8mb4`. `StoreIncidentCommentRequest` sustituye cualquier `author_name` recibido por el nombre del usuario autenticado **antes** de validar; exige un nombre no vacío de hasta 120 caracteres, sin truncarlo ni recurrir al cliente. El controlador solo persiste esos dos campos mediante `comments()`; el ID de incidencia lo determina la ruta, no el payload. No modifica la incidencia ni sus logs y no necesita una transacción de múltiples escrituras.
@@ -237,7 +239,17 @@ Los filtros de estado y prioridad se aplican al seleccionar; el texto se envía 
 
 La creación utiliza `Form` tipado, Wayfinder y los componentes existentes. Envía solo los cinco campos de creación y nunca incluye estado. Se bloquea durante el envío, conserva valores cuando hay errores y reinicia los campos tras éxito (prioridad predeterminada media). La validación se delega al servidor con `noValidate` para mostrar sus mensajes españoles junto a los campos; se mantienen límites HTML y atributos accesibles. Se reutiliza el toast de éxito existente y se muestra confirmación temporal en el formulario. Los formularios separan sus errores mediante error bags.
 
-**Pendiente:** `incidents/show` aún no tiene componente React. Los títulos enlazan a su ruta existente como preparación, pero abrirlos todavía no ofrece una pantalla funcional. No se implementaron operaciones de estado ni comentarios en la interfaz. La comprobación visual/interactiva de la pantalla principal sigue pendiente por fallo del navegador integrado; build y análisis estático no sustituyen esa revisión. Las rutas operativas requieren además aplicar las migraciones pendientes en desarrollo antes de usarse allí.
+### Pantalla de detalle
+
+Los títulos del listado abren `incidents/show`, con regreso al listado, todos los datos de la incidencia, historial descendente como línea temporal y comentarios ascendentes. Los cambios de estado muestran valores anterior/nuevo traducidos, actor y fecha; las acciones o valores desconocidos se presentan sin inventar su significado. El metadata disponible se puede desplegar. Descripción, comentarios y datos de auditoría se muestran como texto, sin HTML sin escapar.
+
+El formulario de comentario usa la ruta existente con Inertia y Wayfinder: envía solo `body`, muestra errores españoles de contenido o nombre autenticado, bloquea el envío mientras procesa y reinicia únicamente tras éxito. El detalle y sus comentarios se actualizan sin recarga completa; las fechas y autor proceden del backend.
+
+Las acciones de estado proceden de `allowedTransitions`. Bloquear o resolver abre un diálogo de confirmación del starter kit con cancelar/confirmar; ninguna acción envía actor desde el navegador. Durante el PATCH los botones quedan deshabilitados. Éxito y conflicto redirigen al **detalle** y recargan su estado, historial y acciones autoritativas; se muestran flash/toast y errores en el panel de estado, incluso si el nuevo estado ya no permite transiciones. Los errores de comentarios y estado están separados mediante error bags. No hay actualizaciones optimistas ni una segunda implementación de las transiciones.
+
+Las fechas del detalle se formatean en español en la zona horaria del navegador, indicada junto a cada fecha. Los datos siguen almacenados y transmitidos en UTC; `dateTime` conserva el ISO original y el título de cada fecha permite consultar UTC. El render inicial SSR utiliza UTC y después adopta la zona del navegador para evitar discrepancias de hidratación. El listado conserva su presentación explícita en UTC.
+
+**Pendiente:** revisión visual/interactiva de ambas pantallas por fallo del navegador integrado; build y análisis estático no sustituyen esa revisión. Las rutas operativas requieren además aplicar las migraciones pendientes en desarrollo antes de usarse allí. La implementación incluye filtro rápido por estado y confirmación antes de bloquear/resolver como las dos mejoras de interacción elegidas del enunciado; su comprobación en navegador sigue pendiente.
 
 ## Transiciones de estado
 
@@ -259,7 +271,7 @@ La acción devuelve una instancia consultada de nuevo; no actualiza la instancia
 
 El endpoint PATCH usa `UpdateIncidentStatusRequest` para exigir un `status` textual del enum. El controlador obtiene el nombre del actor del usuario autenticado y llama a la acción por inyección de dependencias. Ignora cualquier actor o usuario enviado en el payload; no reproduce la matriz de transición ni abre otra transacción.
 
-El éxito redirige con 303 a `incidents.index` y flash `toast.type = success` con mensaje en español. La distinción entre errores es:
+El éxito redirige con 303 a `incidents.show` de la incidencia y flash `toast.type = success` con mensaje en español. La distinción entre errores es:
 
 | Caso                                                                   | Petición JSON                                               | Petición Inertia                                                                                           |
 | ---------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -268,9 +280,11 @@ El éxito redirige con 303 a `incidents.index` y flash `toast.type = success` co
 
 Así se conserva el flujo de errores de formularios de Inertia sin usar un 409 que el cliente interprete como recarga o respuesta inesperada. Las peticiones JSON se distinguen por negociación de contenido; no se crea una API separada. Una incidencia inexistente devuelve 404; un invitado es redirigido a login o recibe 401 si solicita JSON. Fallos de persistencia no se convierten en conflictos: se propagan como errores de servidor y se revierten las escrituras.
 
-Se mantienen los middleware `web`, `auth` y `verified` del starter kit. No existen roles ni propiedad de incidencia que restrinjan a otros operadores autenticados. El modelo `User` actual no implementa `MustVerifyEmail`: conservar `verified` no activa una función nueva de verificación. El nombre autenticado debe respetar el límite de 120 caracteres del log; la acción devuelve error de validación si no lo cumple, sin truncarlo ni sustituirlo por datos del cliente. Las acciones React de cambio de estado siguen pendientes; los tests del endpoint comprueban su redirección sin seguirla.
+Se mantienen los middleware `web`, `auth` y `verified` del starter kit. No existen roles ni propiedad de incidencia que restrinjan a otros operadores autenticados. El modelo `User` actual no implementa `MustVerifyEmail`: conservar `verified` no activa una función nueva de verificación. El nombre autenticado debe respetar el límite de 120 caracteres del log; la acción devuelve error de validación si no lo cumple, sin truncarlo ni sustituirlo por datos del cliente. Los tests de integración comprueban el detalle actualizado después del PATCH y de un conflicto; la interacción React en navegador sigue pendiente.
 
 ## Verificación y limitaciones
+
+Detalle React (16 de octubre de 2026): TypeScript, formato/lint focalizado, build, Pint y PHPStan del controlador correctos; cinco rutas y middleware conservados. Tras verificar lectura/escritura como MySQL `prueba_optimaretail_test` (5.7.44), pruebas afectadas: 93 aprobadas, 448 aserciones. Suite completa: 169 aprobadas, 3 omitidas, 712 aserciones. Sin operaciones en desarrollo. La revisión visual sigue bloqueada por `Cannot redefine property: process`; persiste el aviso previo de `fontaine` sin cambios de dependencias.
 
 Pantalla principal (16 de octubre de 2026): formato/lint focalizados mediante `npm run check --` sobre los ocho archivos frontend afectados, `npm run types:check` y `npm run build` correctos. Rutas revisadas y Wayfinder regenerado mediante Artisan/plugin Vite, sin editar código generado. El aviso conocido de `fontaine` permanece; no se añadieron dependencias ni se ocultó. Sin cambios de backend, operaciones sobre bases de datos ni repetición de tests PHP. Revisión visual y pruebas interactivas pendientes; ver [registro de desarrollo](docs/development.md).
 

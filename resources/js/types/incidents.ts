@@ -37,3 +37,28 @@ export type CreateIncidentValues = {
     requester_name: string;
     assigned_to: string;
 };
+
+export type IncidentLog = {
+    id: number;
+    incident_id: number;
+    action: string;
+    old_value: string | null;
+    new_value: string | null;
+    user_name: string;
+    metadata: Record<string, unknown> | unknown[] | null;
+    created_at: string;
+};
+
+export type IncidentComment = {
+    id: number;
+    incident_id: number;
+    author_name: string;
+    body: string;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+export type IncidentDetail = Incident & {
+    logs: IncidentLog[];
+    comments: IncidentComment[];
+};

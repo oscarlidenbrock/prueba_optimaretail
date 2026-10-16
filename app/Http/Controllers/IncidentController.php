@@ -24,7 +24,13 @@ class IncidentController extends Controller
             'comments',
         ]);
 
-        return Inertia::render('incidents/show', ['incident' => $incident]);
+        return Inertia::render('incidents/show', [
+            'incident' => $incident,
+            'allowedTransitions' => array_values(array_map(
+                fn (IncidentStatus $status): string => $status->value,
+                array_filter(IncidentStatus::cases(), fn (IncidentStatus $status): bool => $incident->status->canTransitionTo($status)),
+            )),
+        ]);
     }
 
     public function index(IndexIncidentRequest $request): Response
@@ -85,7 +91,7 @@ class IncidentController extends Controller
                 'code' => 'incident_status_conflict',
             ]);
 
-            return to_route('incidents.index', [], 303)
+            return to_route('incidents.show', $incident, 303)
                 ->withErrors(['status' => $exception->getMessage()]);
         }
 
@@ -94,6 +100,6 @@ class IncidentController extends Controller
             'message' => 'Estado de la incidencia actualizado correctamente.',
         ]);
 
-        return to_route('incidents.index', [], 303);
+        return to_route('incidents.show', $incident, 303);
     }
 }

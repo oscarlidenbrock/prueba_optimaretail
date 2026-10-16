@@ -33,7 +33,7 @@ test('valid HTTP transitions record the authenticated actor and return an Inerti
         'user_id' => 999999,
     ], ['X-Inertia' => 'true']);
 
-    $response->assertStatus(303)->assertRedirect(route('incidents.index'))->assertSessionHasNoErrors()
+    $response->assertStatus(303)->assertRedirect(route('incidents.show', $incident))->assertSessionHasNoErrors()
         ->assertInertiaFlash('toast.type', 'success')
         ->assertInertiaFlash('toast.message', 'Estado de la incidencia actualizado correctamente.');
     $this->assertDatabaseHas('incidents', ['id' => $incident->id, 'status' => $newStatus]);
@@ -75,9 +75,9 @@ test('Inertia validation errors redirect with Spanish field errors and no confli
     $this->actingAs(User::factory()->create());
     $incident = Incident::factory()->create();
 
-    $this->from(route('incidents.index'))
+    $this->from(route('incidents.show', $incident))
         ->patch(route('incidents.status.update', ['incident' => $incident]), ['status' => 'closed'], ['X-Inertia' => 'true'])
-        ->assertStatus(303)->assertRedirect(route('incidents.index'))
+        ->assertStatus(303)->assertRedirect(route('incidents.show', $incident))
         ->assertSessionHasErrors(['status' => 'El estado solicitado no es válido.'])
         ->assertInertiaFlashMissing('toast.code');
 
@@ -112,7 +112,7 @@ test('Inertia state conflicts redirect with field errors and an identifiable err
     $message = 'El cambio de estado solicitado no está permitido para el estado actual de la incidencia.';
 
     $this->patch(route('incidents.status.update', ['incident' => $incident]), ['status' => 'resolved'], ['X-Inertia' => 'true'])
-        ->assertStatus(303)->assertRedirect(route('incidents.index'))
+        ->assertStatus(303)->assertRedirect(route('incidents.show', $incident))
         ->assertSessionHasErrors(['status' => $message])
         ->assertInertiaFlash('toast.type', 'error')
         ->assertInertiaFlash('toast.code', 'incident_status_conflict')
